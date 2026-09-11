@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+{% block title %}Student Dashboard{% endblock %}
+
+{% block content %}
+<!-- Student Welcome Header -->
+<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4 pb-2 border-bottom">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <h2 class="fw-bold mb-0">Welcome back, {{ user.get_full_name|default:user.username }} 👋</h2>
+            <span class="cw-role-pill cw-role-student">Student</span>
+        </div>
+        <p class="text-muted small mb-0">Track your project proposals, collaboration invites, and discover new campus work.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary btn-sm">
+            ✏️ Edit Profile & Skills
+        </a>
+        <a href="{% url 'projects:project_list' %}" class="btn btn-primary btn-sm">
+            🔍 Explore Projects
+        </a>
+    </div>
+</div>
+
+<!-- Stat Counters -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-4">
+        <div class="cw-stat-card">
+            <div>
+                <div class="cw-stat-value text-dark">{{ applications.count }}</div>
+                <div class="cw-stat-label">Total Applications</div>
+            </div>
+            <div class="cw-stat-icon-wrapper" style="background-color: var(--cw-bg-subtle); color: var(--cw-text-body);">
+                📝
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-4">
+        <div class="cw-stat-card">
+            <div>
+                <div class="cw-stat-value text-warning">{{ pending_count }}</div>
+                <div class="cw-stat-label">Pending Decisions</div>
+            </div>
+            <div class="cw-stat-icon-wrapper" style="background-color: var(--cw-warning-bg); color: var(--cw-warning);">
+                ⏳
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-4">
+        <div class="cw-stat-card">
+            <div>
+                <div class="cw-stat-value text-success">{{ accepted_count }}</div>
+                <div class="cw-stat-label">Accepted / Active</div>
+            </div>
+            <div class="cw-stat-icon-wrapper" style="background-color: var(--cw-success-bg); color: var(--cw-success);">
+                🎉
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- My Offered Services Section (Contributor 1 Domain) -->
+<div class="card shadow-sm mb-5">
+    <div class="card-header bg-white py-3 d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2">
+        <div>
+            <h5 class="mb-0 fw-bold">My Offered Services</h5>
+            <div class="text-muted small">Skills and services you offer to RUET peers, clubs, and campus teams</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'services:service_list' %}?mine=1" class="btn btn-sm btn-outline-secondary">
+                My Listings ({{ user.services.count }})
+            </a>
+            <a href="{% url 'services:service_create' %}" class="btn btn-sm btn-primary">
+                + Offer a Service
+            </a>
+        </div>
+    </div>
+    {% if user.services.all %}
+        <div class="table-responsive">
+            <table class="table cw-table align-middle">
+                <thead>
+                    <tr>
+                        <th>Service Title</th>
+                        <th>Category</th>
+                        <th>Rate / Budget</th>
+                        <th>Turnaround</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for svc in user.services.all|slice:":5" %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'services:service_detail' svc.pk %}" class="fw-bold text-dark text-decoration-none">
+                                    {{ svc.title }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">{{ svc.category }}</span>
+                            </td>
+                            <td>
+                                {% if svc.price_estimate %}
+                                    <span class="fw-semibold text-primary">${{ svc.price_estimate }}</span>
+                                {% else %}
+                                    <span class="text-muted small">Negotiable</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-muted small">~{{ svc.delivery_time_days }} day{{ svc.delivery_time_days|pluralize }}</span>
+                            </td>
+                            <td>
+                                {% if svc.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Paused</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="d-inline-flex gap-2">
+                                    <a href="{% url 'services:service_detail' svc.pk %}" class="btn btn-sm btn-outline-secondary">
+                                        View
+                                    </a>
+                                    <a href="{% url 'services:service_update' svc.pk %}" class="btn btn-sm btn-outline-primary">
+                                        Edit
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="card-body">
+            <div class="cw-empty-state my-2">
+                <div class="cw-empty-icon">💡</div>
+                <h6 class="cw-empty-title">Offer Your Skills to Fellow Students</h6>
+                <p class="cw-empty-desc">Create a service listing (e.g. poster design, circuit debugging, web dev) to collaborate with campus clubs and peers.</p>
+                <a href="{% url 'services:service_create' %}" class="btn btn-outline-primary btn-sm">
+                    + Publish Your First Service
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- My Applications Section -->
+<div class="card shadow-sm mb-5">
+    <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+        <h5 class="mb-0 fw-bold">My Project Applications</h5>
+        <a href="{% url 'projects:project_list' %}" class="btn btn-sm btn-outline-primary">
+            + Apply to More Projects
+        </a>
+    </div>
+
+    {% if applications %}
+        <div class="table-responsive">
+            <table class="table cw-table align-middle">
+                <thead>
+                    <tr>
+                        <th>Target Project</th>
+                        <th>Client / Organizer</th>
+                        <th>Budget</th>
+                        <th>Status</th>
+                        <th>Applied On</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for app in applications %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'projects:project_detail' app.project.pk %}" class="fw-bold text-dark text-decoration-none">
+                                    {{ app.project.title }}
+                                </a>
+                                {% if app.project.category %}
+                                    <div class="text-muted small">{{ app.project.category }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-secondary small fw-semibold">
+                                    {{ app.project.client.company_name|default:app.project.client.username }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="fw-semibold text-primary">${{ app.project.budget }}</span>
+                            </td>
+                            <td>
+                                {% if app.status == 'accepted' %}
+                                    <span class="badge bg-success">Accepted 🎉</span>
+                                {% elif app.status == 'rejected' %}
+                                    <span class="badge bg-danger">Declined</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Under Review</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted small">
+                                {{ app.applied_at|date:"M d, Y" }}
+                            </td>
+                            <td class="text-end">
+                                <div class="d-inline-flex gap-2">
+                                    <a href="{% url 'projects:project_detail' app.project.pk %}" class="btn btn-sm btn-outline-secondary">
+                                        View
+                                    </a>
+                                    {% if app.status == 'pending' %}
+                                        <form method="post" action="{% url 'applications:application_withdraw' app.pk %}" class="d-inline" data-confirm="Are you sure you want to withdraw your application? This action cannot be undone.">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                Withdraw
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="card-body">
+            <div class="cw-empty-state my-2">
+                <div class="cw-empty-icon">🎯</div>
+                <h5 class="cw-empty-title">You Haven't Applied to Any Projects Yet</h5>
+                <p class="cw-empty-desc">Discover open software, hardware, and creative tasks posted by RUET clubs and clients to start collaborating.</p>
+                <a href="{% url 'projects:project_list' %}" class="btn btn-primary btn-sm">
+                    Browse Open Projects &rarr;
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Latest Open Projects Section -->
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h4 class="fw-bold mb-0">Explore Opportunities on Campus</h4>
+    <a href="{% url 'projects:project_list' %}" class="text-primary small fw-semibold text-decoration-none">
+        View all projects &rarr;
+    </a>
+</div>
+
+<div class="row g-4">
+    {% for project in open_projects %}
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="cw-item-card">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    {% if project.category %}
+                        <span class="badge bg-primary">{{ project.category }}</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Campus Project</span>
+                    {% endif %}
+                    <span class="fw-bold text-primary">${{ project.budget }}</span>
+                </div>
+
+                <h5 class="cw-item-title">
+                    <a href="{% url 'projects:project_detail' project.pk %}">{{ project.title }}</a>
+                </h5>
+
+                <div class="text-muted small mb-2">
+                    By {{ project.client.company_name|default:project.client.username }}
+                </div>
+
+                <p class="cw-item-desc">
+                    {{ project.description|truncatewords:18 }}
+                </p>
+
+                <div class="cw-item-meta">
+                    <span class="text-muted small">
+                        {% if project.deadline %}Due {{ project.deadline|date:"M d" }}{% endif %}
+                    </span>
+                    <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-sm btn-outline-primary">
+                        View & Apply &rarr;
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <div class="col-12">
+            <p class="text-muted small">No other open projects right now.</p>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

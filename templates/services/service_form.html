@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{% if is_edit %}{% url 'services:service_detail' service.pk %}{% else %}{% url 'services:service_list' %}{% endif %}" class="text-muted small text-decoration-none d-inline-flex align-items-center gap-1">
+        &larr; {% if is_edit %}Back to service details{% else %}Back to services marketplace{% endif %}
+    </a>
+</div>
+
+<div class="row justify-content-center py-2">
+    <div class="col-12 col-md-10 col-lg-8">
+        <div class="card p-4 p-md-5 shadow-sm">
+            <div class="mb-4 pb-3 border-bottom">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-primary">Campus Services</span>
+                    <span class="text-muted small">&middot; Contributor 1 Domain</span>
+                </div>
+                <h3 class="fw-bold mb-1">{{ title }}</h3>
+                <p class="text-muted small mb-0">
+                    Offer your skills, engineering capabilities, or creative services to students, clubs, and campus teams at RUET.
+                </p>
+            </div>
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger" role="alert">
+                    {% for error in form.non_field_errors %}
+                        <div>{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <!-- Service Title -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.title.id_for_label }}">Service Title *</label>
+                    {{ form.title }}
+                    <div class="form-text">State clearly what you will deliver (e.g. "I will design club fest posters in Figma & Illustrator").</div>
+                    {% if form.title.errors %}
+                        <div class="text-danger small mt-1">{{ form.title.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Category & Expected Turnaround -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="{{ form.category.id_for_label }}">Category *</label>
+                        {{ form.category }}
+                        <div class="form-text">Select the technical or creative domain.</div>
+                        {% if form.category.errors %}
+                            <div class="text-danger small mt-1">{{ form.category.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="{{ form.delivery_time_days.id_for_label }}">Delivery Turnaround (Days) *</label>
+                        {{ form.delivery_time_days }}
+                        <div class="form-text">Estimated time to deliver the final work.</div>
+                        {% if form.delivery_time_days.errors %}
+                            <div class="text-danger small mt-1">{{ form.delivery_time_days.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Price / Rate & Skills -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="{{ form.price_estimate.id_for_label }}">Starting Price / Budget ($ USD)</label>
+                        {{ form.price_estimate }}
+                        <div class="form-text">Optional estimated starting rate. Leave blank if negotiable.</div>
+                        {% if form.price_estimate.errors %}
+                            <div class="text-danger small mt-1">{{ form.price_estimate.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="{{ form.skills.id_for_label }}">Key Skills / Technologies</label>
+                        {{ form.skills }}
+                        <div class="form-text">Comma-separated tools or skills (e.g. Python, Django, Docker).</div>
+                        {% if form.skills.errors %}
+                            <div class="text-danger small mt-1">{{ form.skills.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Scope & Description -->
+                <div class="mb-4">
+                    <label class="form-label fw-semibold" for="{{ form.description.id_for_label }}">Detailed Scope & Deliverables *</label>
+                    {{ form.description }}
+                    <div class="form-text">
+                        Outline the deliverables, requirements from the client, revisions included, and your previous experience.
+                    </div>
+                    {% if form.description.errors %}
+                        <div class="text-danger small mt-1">{{ form.description.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Active / Availability Checkbox -->
+                <div class="p-3 bg-light rounded-3 border mb-4">
+                    <div class="form-check form-switch mb-0">
+                        {{ form.is_active }}
+                        <label class="form-check-label fw-semibold ms-2" for="{{ form.is_active.id_for_label }}">
+                            List as Active & Available in Marketplace
+                        </label>
+                        <div class="form-text ms-2 mt-1">
+                            When checked, your service is publicly visible to all RUET students. Uncheck anytime to pause incoming requests.
+                        </div>
+                    </div>
+                    {% if form.is_active.errors %}
+                        <div class="text-danger small mt-1">{{ form.is_active.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-flex align-items-center justify-content-between pt-3 border-top">
+                    <button type="submit" class="btn btn-primary px-4 py-2">
+                        {% if is_edit %}💾 Save Changes{% else %}🚀 Publish Service Offering{% endif %}
+                    </button>
+                    <a href="{% if is_edit %}{% url 'services:service_detail' service.pk %}{% else %}{% url 'services:service_list' %}{% endif %}" class="btn btn-outline-secondary">
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

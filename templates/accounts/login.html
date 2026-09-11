@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Sign In{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-4">
+    <div class="col-12 col-sm-10 col-md-8 col-lg-5">
+        <div class="card p-4 p-md-5 shadow-sm">
+            <div class="text-center mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle mb-3" style="background-color: var(--cw-primary-50); color: var(--cw-primary-700); font-size: 1.75rem;">
+                    🔐
+                </div>
+                <h2 class="fw-bold mb-1">Welcome Back</h2>
+                <p class="text-muted small">Sign in to your CampusWork account</p>
+            </div>
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger" role="alert">
+                    {% for error in form.non_field_errors %}
+                        <div>{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.username.id_for_label }}">Username</label>
+                    {{ form.username }}
+                    {% if form.username.errors %}
+                        <div class="text-danger small mt-1">{{ form.username.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
+                    {{ form.password }}
+                    {% if form.password.errors %}
+                        <div class="text-danger small mt-1">{{ form.password.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2">
+                    Sign In to CampusWork
+                </button>
+            </form>
+
+            <div class="text-center mt-4 pt-3 border-top">
+                <span class="text-muted small">New to CampusWork?</span>
+                <a href="{% url 'accounts:register' %}" class="fw-bold text-primary ms-1 small">Create an Account</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

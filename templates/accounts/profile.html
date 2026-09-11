@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-3">
+    <div class="col-12 col-lg-8">
+        <!-- Profile Header Card -->
+        <div class="card p-4 mb-4 shadow-sm">
+            <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="cw-user-avatar" style="width: 56px; height: 56px; font-size: 1.5rem;">
+                        {{ user.username|make_list|first|upper }}
+                    </div>
+                    <div>
+                        <h3 class="mb-1">{{ user.get_full_name|default:user.username }}</h3>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <span class="cw-role-pill cw-role-{{ user.role }}">{{ user.role }}</span>
+                            <span class="text-muted small">&middot; Member since {{ user.date_joined|date:"M Y" }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <a href="{% url 'accounts:dashboard' %}" class="btn btn-sm btn-outline-secondary">
+                        Go to Dashboard &rarr;
+                    </a>
+                </div>
+            </div>
+
+            {% if user.skills %}
+                <div class="mt-4 pt-3 border-top">
+                    <div class="form-label text-muted small mb-2">Current Active Skills</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for skill in user.skills.split %}
+                            <span class="cw-skill-chip">{{ skill|cut:"," }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Services Offered by User (Contributor 1 Minimal Integration) -->
+        <div class="card p-4 mb-4 shadow-sm">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold mb-0">My Services Offered</h5>
+                <a href="{% url 'services:service_create' %}" class="btn btn-sm btn-outline-primary">
+                    + Offer New Service
+                </a>
+            </div>
+            {% if user.services.all %}
+                <div class="list-group list-group-flush">
+                    {% for service in user.services.all %}
+                        <div class="list-group-item px-0 py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+                            <div>
+                                <a href="{% url 'services:service_detail' service.pk %}" class="fw-bold text-dark text-decoration-none">
+                                    {{ service.title }}
+                                </a>
+                                <div class="d-flex align-items-center gap-2 mt-1">
+                                    <span class="badge bg-primary">{{ service.category }}</span>
+                                    <span class="text-muted small">~{{ service.delivery_time_days }} days turnaround</span>
+                                    {% if not service.is_active %}
+                                        <span class="badge bg-secondary">Paused</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if service.price_estimate %}
+                                    <span class="fw-bold text-primary">${{ service.price_estimate }}</span>
+                                {% endif %}
+                                <a href="{% url 'services:service_detail' service.pk %}" class="btn btn-sm btn-outline-secondary">
+                                    View
+                                </a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted small mb-0">
+                    You have not published any service offerings yet. Share your technical, creative, or academic skills with the campus community!
+                </p>
+            {% endif %}
+        </div>
+
+        <!-- Edit Profile Form -->
+        <div class="card p-4 p-md-5 shadow-sm">
+            <h4 class="fw-bold mb-4">Edit Profile Information</h4>
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="row g-3 mb-3">
+                    <div class="col-sm-6">
+                        <label class="form-label" for="{{ form.first_name.id_for_label }}">First Name</label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}
+                            <div class="text-danger small mt-1">{{ form.first_name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="{{ form.last_name.id_for_label }}">Last Name</label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}
+                            <div class="text-danger small mt-1">{{ form.last_name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.email.id_for_label }}">Email Address</label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                        <div class="text-danger small mt-1">{{ form.email.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.bio.id_for_label }}">About / Bio</label>
+                    {{ form.bio }}
+                    <div class="form-text">Briefly introduce your campus background, department, or interests.</div>
+                    {% if form.bio.errors %}
+                        <div class="text-danger small mt-1">{{ form.bio.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                {% if user.is_student or user.is_admin_role %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.skills.id_for_label }}">Skills (Comma-separated)</label>
+                        {{ form.skills }}
+                        <div class="form-text">e.g., Python, C++, PCB Design, UI/UX, Video Editing, LaTeX.</div>
+                        {% if form.skills.errors %}
+                            <div class="text-danger small mt-1">{{ form.skills.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+                {% if user.is_client or user.is_admin_role %}
+                    <div class="mb-4">
+                        <label class="form-label" for="{{ form.company_name.id_for_label }}">Organization / Club Name</label>
+                        {{ form.company_name }}
+                        {% if form.company_name.errors %}
+                            <div class="text-danger small mt-1">{{ form.company_name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+                <div class="d-flex align-items-center justify-content-between pt-3 border-top">
+                    <button type="submit" class="btn btn-primary">Save Profile Changes</button>
+                    <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

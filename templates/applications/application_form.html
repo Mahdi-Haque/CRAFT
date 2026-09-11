@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Apply for {{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{% url 'projects:project_detail' project.pk %}" class="text-muted small text-decoration-none d-inline-flex align-items-center gap-1">
+        &larr; Back to project details
+    </a>
+</div>
+
+<div class="row justify-content-center py-2">
+    <div class="col-12 col-md-9 col-lg-8">
+        <div class="card p-4 p-md-5 shadow-sm">
+            <!-- Project Snapshot -->
+            <div class="p-3 bg-light rounded-3 border mb-4">
+                <span class="badge bg-primary mb-1">Applying to Project</span>
+                <h4 class="fw-bold text-dark mb-1">{{ project.title }}</h4>
+                <div class="d-flex flex-wrap gap-3 text-muted small mt-2">
+                    <span>Organized by: <strong class="text-dark">{{ project.client.company_name|default:project.client.username }}</strong></span>
+                    <span>Budget: <strong class="text-primary">${{ project.budget }}</strong></span>
+                    {% if project.deadline %}
+                        <span>Deadline: <strong>{{ project.deadline|date:"M d, Y" }}</strong></span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Application Tips -->
+            <div class="alert alert-info mb-4" role="alert">
+                <div class="small">
+                    <strong>💡 Application Tips:</strong> Mention your relevant skills, RUET coursework/labs, personal projects, or GitHub links, and why you are excited to collaborate.
+                </div>
+            </div>
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="mb-4">
+                    <label class="form-label" for="{{ form.cover_letter.id_for_label }}">Cover Letter / Pitch</label>
+                    {{ form.cover_letter }}
+                    <div class="form-text">Keep it clear, concise, and focused on how you can contribute.</div>
+                    {% if form.cover_letter.errors %}
+                        <div class="text-danger small mt-1">{{ form.cover_letter.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between pt-3 border-top">
+                    <button type="submit" class="btn btn-primary py-2 px-4">
+                        Submit Application
+                    </button>
+                    <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-outline-secondary">
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Delete Service{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-4">
+    <div class="col-12 col-md-8 col-lg-6">
+        <div class="card p-4 p-md-5 shadow-sm border-danger">
+            <div class="text-center mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle mb-3" style="background-color: var(--cw-danger-bg); color: var(--cw-danger); font-size: 1.75rem;">
+                    ⚠️
+                </div>
+                <h3 class="fw-bold text-danger mb-1">Confirm Service Deletion</h3>
+                <p class="text-muted small">Are you sure you want to permanently remove this service listing from the marketplace?</p>
+            </div>
+
+            <div class="p-3 bg-light rounded-3 border mb-4">
+                <div class="fw-bold text-dark fs-5">{{ service.title }}</div>
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-2 text-muted small">
+                    <span class="badge bg-primary">{{ service.category }}</span>
+                    <span>&middot;</span>
+                    <span>Turnaround: ~{{ service.delivery_time_days }} day{{ service.delivery_time_days|pluralize }}</span>
+                    {% if service.price_estimate %}
+                        <span>&middot;</span>
+                        <span>Price: ${{ service.price_estimate }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="alert alert-warning mb-4" role="alert">
+                <strong>Notice:</strong> This action cannot be reversed. Students will no longer find or be able to request this service.
+            </div>
+
+            <form method="post" data-confirm="Are you sure you want to delete this service offering?">
+                {% csrf_token %}
+                <div class="d-flex flex-column flex-sm-row gap-2 justify-content-end">
+                    <a href="{% url 'services:service_detail' service.pk %}" class="btn btn-outline-secondary order-2 order-sm-1">
+                        No, Keep Service
+                    </a>
+                    <button type="submit" class="btn btn-danger order-1 order-sm-2">
+                        Yes, Delete Service
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

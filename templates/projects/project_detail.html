@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}{{ project.title }}{% endblock %}
+
+{% block content %}
+<!-- Back link -->
+<div class="mb-3">
+    <a href="{% url 'projects:project_list' %}" class="text-muted small text-decoration-none d-inline-flex align-items-center gap-1">
+        &larr; Back to all projects
+    </a>
+</div>
+
+<div class="row g-4">
+    <!-- Main Content Area -->
+    <div class="col-12 col-lg-8">
+        <div class="card p-4 p-md-5 shadow-sm">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                {% if project.category %}
+                    <span class="badge bg-primary">{{ project.category }}</span>
+                {% endif %}
+                {% if project.status == 'open' %}
+                    <span class="badge bg-success">Open for Applications</span>
+                {% else %}
+                    <span class="badge bg-secondary">Closed</span>
+                {% endif %}
+                <span class="text-muted small ms-auto">Posted {{ project.created_at|date:"F d, Y" }}</span>
+            </div>
+
+            <h1 class="fw-bold mb-3">{{ project.title }}</h1>
+
+            <div class="d-flex align-items-center gap-2 mb-4 pb-3 border-bottom text-muted small">
+                <span>Organized by: <strong class="text-dark">{{ project.client.company_name|default:project.client.username }}</strong></span>
+            </div>
+
+            <h5 class="fw-bold text-dark mb-3">Project Description & Scope</h5>
+            <div class="project-description-text mb-4 text-secondary" style="white-space: pre-line; line-height: 1.7; font-size: 1rem;">
+                {{ project.description }}
+            </div>
+
+            <!-- Owner Controls -->
+            {% if is_owner %}
+                <div class="p-3 bg-light rounded-3 border mt-4">
+                    <h6 class="fw-bold mb-2">Project Management Controls</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{% url 'applications:applicants_list' project.pk %}" class="btn btn-primary btn-sm">
+                            👥 View Applicants ({{ project.applicant_count }})
+                        </a>
+                        <a href="{% url 'projects:project_update' project.pk %}" class="btn btn-outline-secondary btn-sm">
+                            ✏️ Edit Project
+                        </a>
+                        <a href="{% url 'projects:project_delete' project.pk %}" class="btn btn-outline-danger btn-sm">
+                            🗑️ Delete Project
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Sidebar Info Panel -->
+    <div class="col-12 col-lg-4">
+        <div class="card p-4 shadow-sm mb-4">
+            <h5 class="fw-bold mb-3">Project Overview</h5>
+            
+            <div class="mb-3 pb-3 border-bottom">
+                <div class="text-muted small text-uppercase fw-semibold">Estimated Budget</div>
+                <div class="fs-2 fw-bold text-primary">${{ project.budget }}</div>
+            </div>
+
+            <div class="mb-3 pb-3 border-bottom">
+                <div class="text-muted small text-uppercase fw-semibold">Application Deadline</div>
+                <div class="fw-semibold text-dark">
+                    {% if project.deadline %}
+                        📅 {{ project.deadline|date:"M d, Y" }}
+                    {% else %}
+                        <span class="text-muted">No deadline specified</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="text-muted small text-uppercase fw-semibold">Competition</div>
+                <div class="fw-semibold text-dark">
+                    👥 {{ project.applicant_count }} student applicant{{ project.applicant_count|pluralize }}
+                </div>
+            </div>
+
+            <!-- Student Action CTA -->
+            {% if user.is_student %}
+                {% if project.status == 'open' %}
+                    <a href="{% url 'applications:project_apply' project.pk %}" class="btn btn-primary w-100 py-2">
+                        Apply for this Project &rarr;
+                    </a>
+                {% else %}
+                    <button class="btn btn-secondary w-100 py-2" disabled>
+                        Project is Closed
+                    </button>
+                {% endif %}
+            {% elif not user.is_authenticated %}
+                <div class="text-center p-3 bg-light rounded-3">
+                    <p class="small text-muted mb-2">Want to apply for this campus opportunity?</p>
+                    <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary btn-sm w-100">Sign In to Apply</a>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Creator Profile Mini-Card -->
+        <div class="card p-4 shadow-sm">
+            <h6 class="fw-bold mb-3">About the Poster</h6>
+            <div class="d-flex align-items-center gap-3">
+                <div class="cw-user-avatar" style="width: 44px; height: 44px; font-size: 1.1rem;">
+                    {{ project.client.username|make_list|first|upper }}
+                </div>
+                <div>
+                    <div class="fw-bold text-dark">{{ project.client.company_name|default:project.client.username }}</div>
+                    <div class="text-muted small">{{ project.client.role|capfirst }} on CampusWork</div>
+                </div>
+            </div>
+            {% if project.client.bio %}
+                <p class="text-muted small mt-3 mb-0">{{ project.client.bio|truncatewords:25 }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

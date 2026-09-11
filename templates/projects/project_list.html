@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block title %}Explore Projects{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4 pb-2 border-bottom">
+    <div>
+        <h2 class="fw-bold mb-1">Open Campus Projects</h2>
+        <p class="text-muted small mb-0">Collaborate with fellow RUET students on technical projects, club initiatives, and freelance work.</p>
+    </div>
+    {% if user.is_client or user.is_admin_role %}
+        <div>
+            <a href="{% url 'projects:project_create' %}" class="btn btn-primary">
+                <span>+ Post a Project</span>
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Search & Filtering Bar -->
+<div class="card p-3 mb-4 shadow-sm">
+    <form method="get" class="row g-2 align-items-center">
+        <div class="col-12 col-md-9">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0 text-muted">🔍</span>
+                <input type="text" name="q" value="{{ query }}" class="form-control border-start-0" placeholder="Search projects by title, keywords, required skills, or category..." data-card-filter=".cw-project-item">
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <button class="btn btn-primary w-100" type="submit">Search</button>
+        </div>
+        {% if query %}
+            <div class="col-6 col-md-1">
+                <a href="{% url 'projects:project_list' %}" class="btn btn-outline-secondary w-100" title="Clear search">Clear</a>
+            </div>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Projects Grid -->
+<div class="row g-4">
+    {% for project in projects %}
+        <div class="col-12 col-md-6 col-lg-4 cw-project-item">
+            <div class="cw-item-card">
+                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                    {% if project.category %}
+                        <span class="badge bg-primary">{{ project.category }}</span>
+                    {% else %}
+                        <span class="badge bg-secondary">General Project</span>
+                    {% endif %}
+                    <span class="badge bg-success">Open</span>
+                </div>
+
+                <h5 class="cw-item-title">
+                    <a href="{% url 'projects:project_detail' project.pk %}">{{ project.title }}</a>
+                </h5>
+
+                <div class="text-muted small mb-2">
+                    Posted by <strong class="text-dark">{{ project.client.company_name|default:project.client.username }}</strong>
+                </div>
+
+                <p class="cw-item-desc">
+                    {{ project.description|truncatewords:22 }}
+                </p>
+
+                <div class="cw-item-meta">
+                    <div>
+                        <div class="cw-budget-tag">${{ project.budget }}</div>
+                        {% if project.deadline %}
+                            <div class="cw-meta-sub">Due: {{ project.deadline|date:"M d, Y" }}</div>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-sm {% if project.pk in applied_ids %}btn-outline-success{% else %}btn-outline-primary{% endif %}">
+                            {% if project.pk in applied_ids %}
+                                ✓ Applied
+                            {% else %}
+                                View Details &rarr;
+                            {% endif %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <div class="col-12">
+            <div class="cw-empty-state">
+                <div class="cw-empty-icon">📂</div>
+                <h4 class="cw-empty-title">No Open Projects Found</h4>
+                <p class="cw-empty-desc">
+                    {% if query %}
+                        No projects match your query "{{ query }}". Try searching for different keywords or clear the filter.
+                    {% else %}
+                        There are currently no open projects posted. Check back soon or post an opportunity for the campus!
+                    {% endif %}
+                </p>
+                {% if query %}
+                    <a href="{% url 'projects:project_list' %}" class="btn btn-outline-secondary btn-sm">Clear Search Filter</a>
+                {% elif user.is_client or user.is_admin_role %}
+                    <a href="{% url 'projects:project_create' %}" class="btn btn-primary btn-sm">Post a New Project</a>
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

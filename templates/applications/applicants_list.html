@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %}Applicants &middot; {{ project.title }}{% endblock %}
+
+{% block content %}
+<!-- Header Bar -->
+<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4 pb-2 border-bottom">
+    <div>
+        <div class="mb-1">
+            <a href="{% url 'projects:project_detail' project.pk %}" class="text-muted small text-decoration-none d-inline-flex align-items-center gap-1">
+                &larr; Back to "{{ project.title }}"
+            </a>
+        </div>
+        <h2 class="fw-bold mb-1">Student Applicants</h2>
+        <p class="text-muted small mb-0">Review student proposals, inspect candidate skills, and build your team.</p>
+    </div>
+    <div>
+        <span class="badge bg-primary fs-6 px-3 py-2">
+            👥 {{ applicants|length }} Total Applicant{{ applicants|length|pluralize }}
+        </span>
+    </div>
+</div>
+
+<!-- Applicants Card -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+        <h5 class="mb-0 fw-bold">Candidate Proposals</h5>
+        <span class="text-muted small">Project Budget: ${{ project.budget }}</span>
+    </div>
+
+    {% if applicants %}
+        <div class="table-responsive">
+            <table class="table cw-table align-middle">
+                <thead>
+                    <tr>
+                        <th style="min-width: 200px;">Student Candidate</th>
+                        <th style="min-width: 320px;">Cover Letter / Proposal</th>
+                        <th>Applied On</th>
+                        <th>Current Status</th>
+                        <th class="text-end" style="min-width: 170px;">Review Decision</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for app in applicants %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="cw-user-avatar" style="width: 38px; height: 38px; font-size: 0.95rem;">
+                                        {{ app.student.username|make_list|first|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-dark">{{ app.student.get_full_name|default:app.student.username }}</div>
+                                        <div class="text-muted small">{{ app.student.email }}</div>
+                                    </div>
+                                </div>
+                                {% if app.student.skills %}
+                                    <div class="d-flex flex-wrap gap-1 mt-2">
+                                        {% for skill in app.student.skills.split %}
+                                            <span class="cw-skill-chip" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;">
+                                                {{ skill|cut:"," }}
+                                            </span>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="p-2 bg-light rounded text-secondary small" style="white-space: pre-line; max-height: 120px; overflow-y: auto; line-height: 1.5;">
+                                    {{ app.cover_letter }}
+                                </div>
+                            </td>
+                            <td class="text-muted small text-nowrap">
+                                {{ app.applied_at|date:"M d, Y" }}
+                            </td>
+                            <td>
+                                {% if app.status == 'accepted' %}
+                                    <span class="badge bg-success">Accepted</span>
+                                {% elif app.status == 'rejected' %}
+                                    <span class="badge bg-danger">Rejected</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="d-inline-flex gap-1">
+                                    {% if app.status != 'accepted' %}
+                                        <form method="post" action="{% url 'applications:application_status' app.pk 'accepted' %}" class="d-inline" data-no-disable="true">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-success" title="Accept student into project">
+                                                ✓ Accept
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                    {% if app.status != 'rejected' %}
+                                        <form method="post" action="{% url 'applications:application_status' app.pk 'rejected' %}" class="d-inline" data-no-disable="true">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Decline application">
+                                                ✕ Reject
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="card-body">
+            <div class="cw-empty-state my-2">
+                <div class="cw-empty-icon">📬</div>
+                <h5 class="cw-empty-title">No Applications Received Yet</h5>
+                <p class="cw-empty-desc">When RUET students discover your project in the marketplace, their submissions will appear here for review.</p>
+                <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-outline-secondary btn-sm">
+                    View Public Project Page
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

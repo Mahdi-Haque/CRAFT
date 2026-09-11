@@ -1,0 +1,158 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CampusWork{% endblock %} &middot; RUET Student Marketplace</title>
+    
+    <!-- Vendor Bootstrap 5 CSS -->
+    <link href="{% static 'vendor/css/bootstrap.min.css' %}" rel="stylesheet">
+    
+    <!-- CampusWork Design System Styles -->
+    <link href="{% static 'css/base.css' %}" rel="stylesheet">
+    <link href="{% static 'css/components.css' %}" rel="stylesheet">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- Application Header / Navigation Shell -->
+<header class="cw-navbar">
+    <div class="container">
+        <a class="cw-brand" href="{% if user.is_authenticated %}{% url 'accounts:dashboard' %}{% else %}{% url 'projects:project_list' %}{% endif %}">
+            <span class="cw-brand-badge">⚡</span>
+            <div class="cw-brand-text">
+                <span class="cw-brand-title">CampusWork</span>
+                <span class="cw-brand-tag">RUET Marketplace</span>
+            </div>
+        </a>
+
+        <!-- Mobile Toggler -->
+        <button class="navbar-toggler d-lg-none btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#cwNavCollapse" aria-controls="cwNavCollapse" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <!-- Navbar Links -->
+        <div class="collapse navbar-collapse d-lg-flex justify-content-between" id="cwNavCollapse">
+            <ul class="cw-nav-links my-2 my-lg-0">
+                {% if user.is_authenticated %}
+                    <li>
+                        <a class="cw-nav-link" href="{% url 'accounts:dashboard' %}">Dashboard</a>
+                    </li>
+                    <li>
+                        <a class="cw-nav-link" href="{% url 'projects:project_list' %}">Browse Projects</a>
+                    </li>
+                    <li>
+                        <a class="cw-nav-link" href="{% url 'services:service_list' %}">Services Marketplace</a>
+                    </li>
+                    {% if user.is_client or user.is_admin_role %}
+                        <li>
+                            <a class="cw-nav-link text-primary fw-bold" href="{% url 'projects:project_create' %}">+ Post Project</a>
+                        </li>
+                    {% endif %}
+                {% else %}
+                    <li>
+                        <a class="cw-nav-link" href="{% url 'projects:project_list' %}">Explore Projects</a>
+                    </li>
+                    <li>
+                        <a class="cw-nav-link" href="{% url 'services:service_list' %}">Explore Services</a>
+                    </li>
+                {% endif %}
+            </ul>
+
+            <div class="d-flex align-items-center gap-2 mt-2 mt-lg-0">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'accounts:profile' %}" class="cw-user-badge" title="View & Edit Profile">
+                        <span class="cw-user-avatar">{{ user.username|make_list|first|upper }}</span>
+                        <span>{{ user.username }}</span>
+                        <span class="cw-role-pill cw-role-{{ user.role }}">{{ user.role }}</span>
+                    </a>
+                    <form method="post" action="{% url 'accounts:logout' %}" class="d-inline" data-no-disable="true">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-secondary" title="Sign out of your account">Logout</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'accounts:login' %}" class="btn btn-sm btn-outline-secondary">Sign In</a>
+                    <a href="{% url 'accounts:register' %}" class="btn btn-sm btn-primary">Get Started</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Main Application Canvas -->
+<main class="cw-main-content">
+    <div class="container">
+        <!-- Global Feedback Messages -->
+        {% if messages %}
+            <div class="cw-messages-container">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if message.tags == 'success' %}
+                                <span>✅</span>
+                            {% elif message.tags == 'error' or message.tags == 'danger' %}
+                                <span>⚠️</span>
+                            {% else %}
+                                <span>ℹ️</span>
+                            {% endif %}
+                            <div>{{ message }}</div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </div>
+</main>
+
+<!-- Application Footer -->
+<footer class="cw-footer">
+    <div class="container">
+        <div class="row gy-4">
+            <div class="col-md-6">
+                <div class="cw-footer-brand">⚡ CampusWork</div>
+                <p class="text-muted small mb-0" style="max-width: 440px;">
+                    A campus-exclusive marketplace designed for RUET students to discover talent, offer skills, collaborate on technical projects, and build professional reputations.
+                </p>
+            </div>
+            <div class="col-md-3 col-6">
+                <h6 class="fw-bold text-dark mb-2">Marketplace</h6>
+                <ul class="list-unstyled small mb-0">
+                    <li class="mb-1"><a href="{% url 'projects:project_list' %}">Browse Projects</a></li>
+                    <li class="mb-1"><a href="{% url 'services:service_list' %}">Services Marketplace</a></li>
+                    {% if user.is_authenticated %}
+                        <li class="mb-1"><a href="{% url 'services:service_create' %}">Offer a Service</a></li>
+                    {% endif %}
+                    {% if user.is_authenticated and user.is_client %}
+                        <li class="mb-1"><a href="{% url 'projects:project_create' %}">Post a Project</a></li>
+                    {% endif %}
+                    <li><a href="{% url 'accounts:dashboard' %}">My Dashboard</a></li>
+                </ul>
+            </div>
+            <div class="col-md-3 col-6">
+                <h6 class="fw-bold text-dark mb-2">Campus Community</h6>
+                <ul class="list-unstyled small mb-0">
+                    <li class="mb-1"><span class="text-muted">Rajshahi University of Engineering & Technology</span></li>
+                    <li class="mb-1"><a href="{% url 'accounts:profile' %}">Student Profiles</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="cw-footer-bottom small">
+            <div>&copy; {% now "Y" %} <strong>CampusWork</strong> &mdash; Built with pride for RUET.</div>
+            <div class="text-muted">Student Freelance & Project Collaboration Ecosystem</div>
+        </div>
+    </div>
+</footer>
+
+<!-- Vendor & Custom JS Scripts -->
+<script src="{% static 'vendor/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'js/main.js' %}"></script>
+{% block extra_js %}{% endblock %}
+
+</body>
+</html>

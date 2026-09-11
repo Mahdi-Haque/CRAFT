@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% block title %}Campus Services Marketplace{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4 pb-2 border-bottom">
+    <div>
+        <h2 class="fw-bold mb-1">Campus Services Marketplace</h2>
+        <p class="text-muted small mb-0">
+            Discover peer talent across RUET. Hire fellow students for software development, hardware prototyping, event graphics, tutoring, and more.
+        </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        {% if user.is_authenticated %}
+            {% if show_mine %}
+                <a href="{% url 'services:service_list' %}" class="btn btn-outline-secondary btn-sm">
+                    View All Services
+                </a>
+            {% else %}
+                <a href="{% url 'services:service_list' %}?mine=1" class="btn btn-outline-secondary btn-sm">
+                    My Services
+                </a>
+            {% endif %}
+            <a href="{% url 'services:service_create' %}" class="btn btn-primary btn-sm">
+                + Offer a Service
+            </a>
+        {% else %}
+            <a href="{% url 'accounts:login' %}" class="btn btn-primary btn-sm">
+                + Offer a Service
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Search & Filtering Bar -->
+<div class="card p-3 mb-4 shadow-sm">
+    <form method="get" class="row g-2 align-items-center">
+        <div class="col-12 col-md-6">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0 text-muted">🔍</span>
+                <input type="text" name="q" value="{{ query }}" class="form-control border-start-0" placeholder="Search services by title, skills, keywords, or creator...">
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-md-4">
+            <select name="category" class="form-select">
+                <option value="">All Categories ({{ total_count }})</option>
+                {% for code, name in categories %}
+                    <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if show_mine %}
+            <input type="hidden" name="mine" value="1">
+        {% endif %}
+        <div class="col-6 col-md-2">
+            <button class="btn btn-primary w-100" type="submit">Filter</button>
+        </div>
+        {% if query or selected_category or show_mine %}
+            <div class="col-6 col-md-12 text-md-end mt-2">
+                <a href="{% url 'services:service_list' %}" class="text-muted small text-decoration-none">
+                    ✕ Reset all filters
+                </a>
+            </div>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Category Pills Navigation -->
+<div class="d-flex flex-wrap gap-2 mb-4 pb-1">
+    <a href="{% url 'services:service_list' %}" class="badge {% if not selected_category %}bg-primary{% else %}bg-secondary{% endif %} text-decoration-none py-2 px-3">
+        All Categories
+    </a>
+    {% for code, name in categories %}
+        {% if forloop.counter <= 8 %}
+            <a href="{% url 'services:service_list' %}?category={{ code }}{% if query %}&q={{ query }}{% endif %}{% if show_mine %}&mine=1{% endif %}" class="badge {% if selected_category == code %}bg-primary{% else %}bg-secondary{% endif %} text-decoration-none py-2 px-3">
+                {{ name }}
+            </a>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<!-- Services Grid -->
+<div class="row g-4">
+    {% for service in services %}
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="cw-item-card">
+                <!-- Header Tags -->
+                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                    <span class="badge bg-primary">{{ service.category }}</span>
+                    {% if service.is_active %}
+                        <span class="badge bg-success">Available</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Paused</span>
+                    {% endif %}
+                </div>
+
+                <!-- Title -->
+                <h5 class="cw-item-title">
+                    <a href="{% url 'services:service_detail' service.pk %}">{{ service.title }}</a>
+                </h5>
+
+                <!-- Creator Info -->
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <div class="cw-user-avatar" style="width: 28px; height: 28px; font-size: 0.75rem;">
+                        {{ service.creator.username|make_list|first|upper }}
+                    </div>
+                    <span class="text-muted small">
+                        By <strong class="text-dark">{{ service.creator.get_full_name|default:service.creator.username }}</strong>
+                    </span>
+                </div>
+
+                <!-- Description Snippet -->
+                <p class="cw-item-desc">
+                    {{ service.description|truncatewords:20 }}
+                </p>
+
+                <!-- Skill Chips -->
+                {% if service.skills_list %}
+                    <div class="d-flex flex-wrap gap-1 mb-3">
+                        {% for skill in service.skills_list|slice:":3" %}
+                            <span class="cw-skill-chip" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;">
+                                {{ skill }}
+                            </span>
+                        {% endfor %}
+                        {% if service.skills_list|length > 3 %}
+                            <span class="text-muted small align-self-center">+{{ service.skills_list|length|add:"-3" }}</span>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+                <!-- Meta Footer -->
+                <div class="cw-item-meta">
+                    <div>
+                        {% if service.price_estimate %}
+                            <div class="cw-budget-tag">${{ service.price_estimate }}</div>
+                        {% else %}
+                            <div class="cw-budget-tag" style="font-size: 0.95rem; color: var(--cw-text-muted);">Negotiable</div>
+                        {% endif %}
+                        <div class="cw-meta-sub">🕒 ~{{ service.delivery_time_days }} day{{ service.delivery_time_days|pluralize }} turnaround</div>
+                    </div>
+                    <div>
+                        <a href="{% url 'services:service_detail' service.pk %}" class="btn btn-sm btn-outline-primary">
+                            View Details &rarr;
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <div class="col-12">
+            <div class="cw-empty-state">
+                <div class="cw-empty-icon">🛠️</div>
+                <h4 class="cw-empty-title">No Services Found</h4>
+                <p class="cw-empty-desc">
+                    {% if query or selected_category %}
+                        No campus services match your current filters. Try adjusting your search keywords or resetting categories.
+                    {% elif show_mine %}
+                        You haven't offered any services yet. Showcase your programming, design, or hardware skills to fellow RUET students!
+                    {% else %}
+                        There are currently no active services listed. Be the first to offer your talents to the campus community!
+                    {% endif %}
+                </p>
+                <div class="d-flex justify-content-center gap-2">
+                    {% if query or selected_category %}
+                        <a href="{% url 'services:service_list' %}" class="btn btn-outline-secondary btn-sm">Reset Filters</a>
+                    {% endif %}
+                    {% if user.is_authenticated %}
+                        <a href="{% url 'services:service_create' %}" class="btn btn-primary btn-sm">+ Offer a Service</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+    <div class="d-flex justify-content-center mt-5">
+        <nav aria-label="Services pagination">
+            <ul class="pagination pagination-sm">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if show_mine %}&mine=1{% endif %}">
+                            &laquo; Previous
+                        </a>
+                    </li>
+                {% endif %}
+
+                <li class="page-item disabled">
+                    <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                </li>
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if show_mine %}&mine=1{% endif %}">
+                            Next &raquo;
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+{% endif %}
+{% endblock %}
