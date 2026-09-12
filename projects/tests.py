@@ -2,6 +2,7 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from projects.models import Project
+from projects.forms import ProjectForm
 
 User = get_user_model()
 
@@ -94,3 +95,75 @@ class ProjectsTests(TestCase):
         del_res = self.client.post(reverse('projects:project_delete', kwargs={'pk': self.project.pk}))
         self.assertEqual(del_res.status_code, 302)
         self.assertFalse(Project.objects.filter(pk=self.project.pk).exists())
+
+    def test_project_can_be_created_with_skills_required(self):
+        project_with_skills = Project.objects.create(
+            client=self.client_user,
+            title='Embedded Drone Firmware',
+            description='Custom drone control loop implementation.',
+            category='Robotics',
+            skills_required='C++, RTOS, STM32, PID',
+            budget=350.00,
+            status=Project.Status.OPEN
+        )
+        self.assertEqual(project_with_skills.skills_required, 'C++, RTOS, STM32, PID')
+        self.assertEqual(project_with_skills.skills_list, ['C++', 'RTOS', 'STM32', 'PID'])
+
+    def test_project_can_exist_with_empty_skills_required(self):
+        project_without_skills = Project.objects.create(
+            client=self.client_user,
+            title='General Research Assistant',
+            description='Literature review for university lab.',
+            category='Research',
+            budget=100.00,
+            status=Project.Status.OPEN
+        )
+        self.assertEqual(project_without_skills.skills_required, '')
+        self.assertEqual(project_without_skills.skills_list, [])
+
+    def test_project_form_exposes_skills_required(self):
+        form = ProjectForm()
+        self.assertIn('skills_required', form.fields)
+        self.assertFalse(form.fields['skills_required'].required)
+
+        # Form is valid with skills_required provided
+        valid_data_with_skills = {
+            'title': 'Computer Vision Pipeline',
+            'description': 'Real-time object detection using YOLO and OpenCV.',
+            'category': 'AI & Python',
+            'skills_required': 'Python, PyTorch, OpenCV',
+            'budget': '200.00',
+            'status': 'open',
+        }
+        form_with_skills = ProjectForm(data=valid_data_with_skills)
+        self.assertTrue(form_with_skills.is_valid())
+        self.assertEqual(form_with_skills.cleaned_data['skills_required'], 'Python, PyTorch, OpenCV')
+
+        # Form is also valid with skills_required omitted/blank
+        valid_data_without_skills = {
+            'title': 'Poster Printing Task',
+            'description': 'Print banners for orientation week.',
+            'category': 'Design',
+            'skills_required': '',
+            'budget': '50.00',
+            'status': 'open',
+        }
+        form_without_skills = ProjectForm(data=valid_data_without_skills)
+        self.assertTrue(form_without_skills.is_valid())
+
+    def test_client_can_create_project_with_skills_via_view(self):
+        self.client.login(username='clientuser', password='Password123!')
+        res = self.client.post(reverse('projects:project_create'), {
+            'title': 'Campus Mobile App UI',
+            'description': 'Figma UI design for RUET event portal.',
+            'category': 'UI/UX',
+            'skills_required': 'Figma, Wireframing, Prototyping',
+            'budget': '150.00',
+            'status': 'open',
+        })
+        self.assertEqual(res.status_code, 302)
+        created_project = Project.objects.filter(title='Campus Mobile App UI').first()
+        self.assertIsNotNone(created_project)
+        self.assertEqual(created_project.skills_required, 'Figma, Wireframing, Prototyping')
+        self.assertEqual(created_project.skills_list, ['Figma', 'Wireframing', 'Prototyping'])
+

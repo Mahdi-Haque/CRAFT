@@ -6,10 +6,13 @@ from .models import Project
 class ProjectForm(forms.ModelForm):
     class Meta:
         model = Project
-        fields = ('title', 'description', 'category', 'budget', 'deadline', 'status')
+        fields = ('title', 'description', 'category', 'skills_required', 'budget', 'deadline', 'status')
         widgets = {
             'description': forms.Textarea(attrs={'rows': 5}),
             'deadline': forms.DateInput(attrs={'type': 'date'}),
+            'skills_required': forms.TextInput(attrs={
+                'placeholder': 'e.g. Python, ROS, OpenCV, C++',
+            }),
         }
 
     def __init__(self, *args, **kwargs):

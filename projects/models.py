@@ -21,6 +21,12 @@ class Project(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
     category = models.CharField(max_length=100, blank=True)
+    skills_required = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Required skills or technologies, comma-separated (e.g. Python, ROS, Figma)"
+    )
     budget = models.DecimalField(max_digits=10, decimal_places=2, help_text="Budget in USD")
     deadline = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
@@ -41,3 +47,9 @@ class Project(models.Model):
         # 'applications' is the related_name Person C's Application model
         # points back at this model with - agreed contract, not a direct import.
         return self.applications.count()
+
+    @property
+    def skills_list(self):
+        if not self.skills_required:
+            return []
+        return [s.strip() for s in self.skills_required.split(',') if s.strip()]
