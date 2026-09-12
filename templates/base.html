@@ -4,12 +4,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}CampusWork{% endblock %} &middot; RUET Student Marketplace</title>
+    <title>{% block title %}CRAFT{% endblock %} &middot; Campus Resource And Freelance Talent (RUET)</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/favicon.png' %}">
+    <link rel="icon" type="image/png" sizes="64x64" href="{% static 'images/favicon-64.png' %}">
+    <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/apple-touch-icon.png' %}">
     
     <!-- Vendor Bootstrap 5 CSS -->
     <link href="{% static 'vendor/css/bootstrap.min.css' %}" rel="stylesheet">
     
-    <!-- CampusWork Design System Styles -->
+    <!-- CRAFT Design System Styles -->
     <link href="{% static 'css/base.css' %}" rel="stylesheet">
     <link href="{% static 'css/components.css' %}" rel="stylesheet">
     
@@ -20,12 +26,8 @@
 <!-- Application Header / Navigation Shell -->
 <header class="cw-navbar">
     <div class="container">
-        <a class="cw-brand" href="{% if user.is_authenticated %}{% url 'accounts:dashboard' %}{% else %}{% url 'projects:project_list' %}{% endif %}">
-            <span class="cw-brand-badge">⚡</span>
-            <div class="cw-brand-text">
-                <span class="cw-brand-title">CampusWork</span>
-                <span class="cw-brand-tag">RUET Marketplace</span>
-            </div>
+        <a class="cw-brand" href="{% url 'home' %}" title="CRAFT — Campus Resource And Freelance Talent" aria-label="CRAFT — Campus Resource And Freelance Talent">
+            <img src="{% static 'images/craft-logo.png' %}" alt="CRAFT — Campus Resource And Freelance Talent" class="cw-navbar-logo">
         </a>
 
         <!-- Mobile Toggler -->
@@ -114,7 +116,11 @@
     <div class="container">
         <div class="row gy-4">
             <div class="col-md-6">
-                <div class="cw-footer-brand">⚡ CampusWork</div>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <img src="{% static 'images/craft-logo.png' %}" alt="CRAFT Logo" class="cw-footer-logo">
+                    <span class="cw-footer-brand mb-0">CRAFT</span>
+                </div>
+                <div class="fw-semibold text-dark small mb-1">Campus Resource And Freelance Talent</div>
                 <p class="text-muted small mb-0" style="max-width: 440px;">
                     A campus-exclusive marketplace designed for RUET students to discover talent, offer skills, collaborate on technical projects, and build professional reputations.
                 </p>
@@ -143,7 +149,7 @@
         </div>
 
         <div class="cw-footer-bottom small">
-            <div>&copy; {% now "Y" %} <strong>CampusWork</strong> &mdash; Built with pride for RUET.</div>
+            <div>&copy; {% now "Y" %} <strong>CRAFT</strong> &mdash; Campus Resource And Freelance Talent (RUET).</div>
             <div class="text-muted">Student Freelance & Project Collaboration Ecosystem</div>
         </div>
     </div>

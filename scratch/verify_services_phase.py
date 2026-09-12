@@ -25,7 +25,7 @@ User = get_user_model()
 
 def run_verification():
     client = Client()
-    print("=== CAMPUSWORK SERVICES DOMAIN END-TO-END VERIFICATION ===")
+    print("=== CRAFT SERVICES DOMAIN END-TO-END VERIFICATION ===")
 
     # 1. Check Public Landing Page & Services Link
     res = client.get(reverse('home'))

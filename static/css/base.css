@@ -1,6 +1,6 @@
 /* ==========================================================================
-   CampusWork — Design System Base Styles & Variables
-   A campus-exclusive freelance, talent, and project marketplace for RUET.
+   CRAFT — Campus Resource And Freelance Talent
+   Design System Base Styles & Variables (RUET Marketplace)
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -175,6 +175,27 @@ a:hover {
     letter-spacing: -0.03em;
 }
 
+.cw-navbar-logo {
+    height: 48px;
+    max-height: 50px;
+    width: auto;
+    object-fit: contain;
+    display: block;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.cw-brand:hover .cw-navbar-logo {
+    transform: scale(1.02);
+    opacity: 0.95;
+}
+
+@media (max-width: 575.98px) {
+    .cw-navbar-logo {
+        height: 40px;
+        max-height: 42px;
+    }
+}
+
 .cw-brand-badge {
     display: inline-flex;
     align-items: center;
@@ -311,6 +332,14 @@ a:hover {
     color: var(--cw-text-main);
     font-size: 1.0625rem;
     margin-bottom: 0.5rem;
+}
+
+.cw-footer-logo {
+    height: 36px;
+    width: auto;
+    object-fit: contain;
+    display: inline-block;
+    vertical-align: middle;
 }
 
 .cw-footer a {

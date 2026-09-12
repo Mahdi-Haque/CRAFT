@@ -9,8 +9,8 @@ class CustomUserAdmin(UserAdmin):
     list_display = ('username', 'email', 'role', 'is_staff', 'is_active', 'date_joined')
     list_filter = ('role', 'is_staff', 'is_active')
     fieldsets = UserAdmin.fieldsets + (
-        ('Job Portal Info', {'fields': ('role', 'skills', 'bio', 'company_name')}),
+        ('CRAFT Profile Info', {'fields': ('role', 'skills', 'bio', 'company_name')}),
     )
     add_fieldsets = UserAdmin.add_fieldsets + (
-        ('Job Portal Info', {'fields': ('role', 'email')}),
+        ('CRAFT Profile Info', {'fields': ('role', 'email')}),
     )

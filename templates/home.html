@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
-{% block title %}CampusWork &middot; RUET Student Marketplace & Collaboration Platform{% endblock %}
+{% load static %}
+{% block title %}CRAFT &middot; Campus Resource And Freelance Talent (RUET){% endblock %}
 
 {% block content %}
 <!-- Hero Section -->
@@ -7,7 +8,7 @@
     <div class="row justify-content-center">
         <div class="col-12 col-lg-9">
             <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill mb-3" style="background-color: var(--cw-primary-50); border: 1px solid var(--cw-primary-200); color: var(--cw-primary-800); font-size: 0.8125rem; font-weight: 700;">
-                <span>🎓</span>
+                <img src="{% static 'images/favicon.png' %}" alt="CRAFT" style="width: 18px; height: 18px; object-fit: contain;">
                 <span>Exclusively for RUET Students & Campus Organizations</span>
             </div>
             
@@ -16,7 +17,7 @@
             </h1>
             
             <p class="lead text-muted mb-4 mx-auto" style="max-width: 680px; font-size: 1.125rem;">
-                CampusWork is a trusted university marketplace where RUET students offer freelance services, discover technical collaborators, and apply for student-led and club projects.
+                <strong>CRAFT</strong> (Campus Resource And Freelance Talent) is a trusted university marketplace where RUET students offer freelance services, discover technical collaborators, and apply for student-led and club projects.
             </p>
             
             <div class="d-flex flex-wrap justify-content-center gap-3 mb-5">
@@ -189,7 +190,7 @@
         <div class="col-12 col-md-8">
             <h2 class="fw-bold text-white mb-2">Ready to put your campus skills to work?</h2>
             <p class="text-white-50 mb-4" style="font-size: 1.0625rem;">
-                Join your classmates on CampusWork today. Find projects, hire peers, and build something meaningful.
+                Join your classmates on CRAFT today. Find projects, hire peers, and build something meaningful.
             </p>
             <div class="d-flex flex-wrap justify-content-center gap-3">
                 <a href="{% url 'accounts:register' %}" class="btn btn-light btn-lg fw-bold text-dark px-4">

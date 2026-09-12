@@ -33,14 +33,14 @@ class AccountsTests(TestCase):
         response = self.client.get(reverse('accounts:login'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Sign In')
-        self.assertContains(response, 'CampusWork')
+        self.assertContains(response, 'CRAFT')
         self.assertContains(response, 'static/css/base.css')
         self.assertContains(response, 'static/css/components.css')
 
     def test_register_page_renders(self):
         response = self.client.get(reverse('accounts:register'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Join CampusWork')
+        self.assertContains(response, 'Join CRAFT')
         self.assertContains(response, 'student-skills-group')
         self.assertContains(response, 'client-company-group')
 

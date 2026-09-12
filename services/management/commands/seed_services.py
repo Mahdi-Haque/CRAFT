@@ -107,5 +107,5 @@ class Command(BaseCommand):
                 created_count += 1
 
         self.stdout.write(
-            self.style.SUCCESS(f"Successfully seeded {created_count} demo services into CampusWork marketplace.")
+            self.style.SUCCESS(f"Successfully seeded {created_count} demo services into CRAFT marketplace.")
         )

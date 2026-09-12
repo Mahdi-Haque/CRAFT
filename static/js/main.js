@@ -1,6 +1,6 @@
 /**
- * CampusWork — Shared Frontend JavaScript Utilities
- * Clean vanilla JS for interactive UX, form enhancements, and feedback.
+ * CRAFT — Campus Resource And Freelance Talent
+ * Shared Frontend JavaScript Utilities (Vanilla JS)
  */
 
 document.addEventListener('DOMContentLoaded', () => {
