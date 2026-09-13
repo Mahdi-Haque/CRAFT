@@ -20,13 +20,13 @@
 <!-- Search & Filtering Bar -->
 <div class="card p-3 mb-4 shadow-sm">
     <form method="get" class="row g-2 align-items-center">
-        <div class="col-12 col-md-6">
+        <div class="col-12 col-md-4">
             <div class="input-group">
                 <span class="input-group-text bg-white border-end-0 text-muted">🔍</span>
                 <input type="text" name="q" value="{{ query }}" class="form-control border-start-0" placeholder="Search projects by title, keywords, required skills, or category..." data-card-filter=".cw-project-item">
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-md-4">
+        <div class="col-12 col-sm-6 col-md-3">
             <select name="category" class="form-select" aria-label="Filter by category">
                 <option value="">All Categories</option>
                 {% for cat in categories %}
@@ -34,10 +34,17 @@
                 {% endfor %}
             </select>
         </div>
-        <div class="col-6 col-md-2">
+        <div class="col-12 col-sm-6 col-md-3">
+            <select name="sort" class="form-select" aria-label="Sort projects by">
+                {% for val, label in sort_options %}
+                    <option value="{{ val }}" {% if selected_sort == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-2">
             <button class="btn btn-primary w-100" type="submit">Filter</button>
         </div>
-        {% if query or selected_category %}
+        {% if query or selected_category or sort_query %}
             <div class="col-12 text-md-end mt-2">
                 <a href="{% url 'projects:project_list' %}" class="text-muted small text-decoration-none" title="Reset all filters">
                     ✕ Reset all filters
@@ -108,7 +115,7 @@
                         There are currently no open projects posted. Check back soon or post an opportunity for the campus!
                     {% endif %}
                 </p>
-                {% if query or selected_category %}
+                {% if query or selected_category or sort_query %}
                     <a href="{% url 'projects:project_list' %}" class="btn btn-outline-secondary btn-sm">Clear Search Filter</a>
                 {% elif user.is_client or user.is_admin_role %}
                     <a href="{% url 'projects:project_create' %}" class="btn btn-primary btn-sm">Post a New Project</a>
@@ -125,7 +132,7 @@
             <ul class="pagination">
                 {% if page_obj.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}" aria-label="Previous">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if sort_query %}&sort={{ sort_query }}{% endif %}" aria-label="Previous">
                             &laquo; Previous
                         </a>
                     </li>
@@ -142,7 +149,7 @@
                         </li>
                     {% else %}
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ p }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}">
+                            <a class="page-link" href="?page={{ p }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if sort_query %}&sort={{ sort_query }}{% endif %}">
                                 {{ p }}
                             </a>
                         </li>
@@ -151,7 +158,7 @@
 
                 {% if page_obj.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}" aria-label="Next">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if sort_query %}&sort={{ sort_query }}{% endif %}" aria-label="Next">
                             Next &raquo;
                         </a>
                     </li>

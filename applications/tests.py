@@ -107,14 +107,89 @@ class ApplicationsTests(TestCase):
         self.assertEqual(withdraw_res.status_code, 302)
         self.assertFalse(Application.objects.filter(pk=app.pk).exists())
 
-    def test_admin_dashboard_access(self):
-        # Student cannot access admin dashboard
+    def test_unauthenticated_user_cannot_submit_application(self):
+        res = self.client.get(reverse('applications:project_apply', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 302)
+        self.assertIn('/login/', res.url)
+
+    def test_project_owner_cannot_apply_to_own_project(self):
+        # Even if owner is student/admin, owner cannot apply to own project
+        self.project.client = self.student
+        self.project.save()
         self.client.login(username='studentuser', password='Password123!')
-        res = self.client.get(reverse('applications:admin_dashboard'))
+        res = self.client.get(reverse('applications:project_apply', kwargs={'pk': self.project.pk}))
         self.assertEqual(res.status_code, 403)
 
-        # Admin can access
-        self.client.login(username='adminuser', password='Password123!')
-        admin_res = self.client.get(reverse('applications:admin_dashboard'))
-        self.assertEqual(admin_res.status_code, 200)
-        self.assertContains(admin_res, 'Platform Administration')
+    def test_non_owner_cannot_view_another_project_applications(self):
+        self.client.login(username='otherstudent', password='Password123!')
+        res = self.client.get(reverse('applications:applicants_list', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 403)
+
+    def test_project_owner_can_reject_pending_application(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            cover_letter='Proposal text'
+        )
+        self.client.login(username='clientuser', password='Password123!')
+        res = self.client.post(reverse('applications:application_reject', kwargs={'pk': app.pk}))
+        self.assertEqual(res.status_code, 302)
+        app.refresh_from_db()
+        self.assertEqual(app.status, Application.Status.REJECTED)
+
+    def test_non_owner_cannot_accept_or_reject_application(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            cover_letter='Proposal text'
+        )
+        self.client.login(username='otherstudent', password='Password123!')
+        res_accept = self.client.post(reverse('applications:application_accept', kwargs={'pk': app.pk}))
+        self.assertEqual(res_accept.status_code, 403)
+
+        res_reject = self.client.post(reverse('applications:application_reject', kwargs={'pk': app.pk}))
+        self.assertEqual(res_reject.status_code, 403)
+
+    def test_applicant_sees_submitted_status_on_project_detail(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            cover_letter='My proposal'
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Application Submitted')
+        self.assertContains(res, 'Pending')
+
+    def test_empty_application_form_is_rejected(self):
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.post(reverse('applications:project_apply', kwargs={'pk': self.project.pk}), {
+            'cover_letter': ''
+        })
+        self.assertEqual(res.status_code, 200)
+        self.assertFormError(res.context['form'], 'cover_letter', 'This field is required.')
+
+    def test_cannot_transition_already_finalized_application(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            cover_letter='Proposal',
+            status=Application.Status.ACCEPTED
+        )
+        self.client.login(username='clientuser', password='Password123!')
+        res = self.client.post(reverse('applications:application_reject', kwargs={'pk': app.pk}))
+        self.assertEqual(res.status_code, 302)
+        app.refresh_from_db()
+        self.assertEqual(app.status, Application.Status.ACCEPTED)
+
+    def test_get_request_on_accept_or_reject_is_denied(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            cover_letter='Proposal'
+        )
+        self.client.login(username='clientuser', password='Password123!')
+        res = self.client.get(reverse('applications:application_accept', kwargs={'pk': app.pk}))
+        self.assertEqual(res.status_code, 403)
+

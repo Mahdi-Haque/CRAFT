@@ -20,6 +20,8 @@ def apply_to_project(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if not student_required(request.user):
         raise PermissionDenied("Only students can apply to projects.")
+    if project.client_id == request.user.id:
+        raise PermissionDenied("You cannot apply to your own project.")
     if project.status != Project.Status.OPEN:
         messages.error(request, "This project is no longer accepting applications.")
         return redirect('projects:project_detail', pk=project.pk)
@@ -33,6 +35,7 @@ def apply_to_project(request, pk):
             application = form.save(commit=False)
             application.project = project
             application.student = request.user
+            application.status = Application.Status.PENDING
             application.save()
             messages.success(request, "Application submitted!")
             return redirect('projects:project_detail', pk=project.pk)
@@ -67,15 +70,31 @@ def applicants_list(request, pk):
 
 @login_required
 def update_application_status(request, pk, new_status):
+    if request.method != 'POST':
+        raise PermissionDenied("Invalid request method.")
     application = get_object_or_404(Application, pk=pk)
     if application.project.client_id != request.user.id and not request.user.is_admin_role:
         raise PermissionDenied("You can only manage applicants for your own projects.")
-    if new_status not in ('accepted', 'rejected', 'pending'):
-        raise PermissionDenied("Invalid status.")
+    if application.status != Application.Status.PENDING:
+        messages.warning(request, "This application has already been decided.")
+        return redirect('applications:applicants_list', pk=application.project_id)
+    if new_status not in (Application.Status.ACCEPTED, Application.Status.REJECTED):
+        raise PermissionDenied("Invalid status transition.")
     application.status = new_status
     application.save()
     messages.success(request, f"Application marked as {new_status}.")
     return redirect('applications:applicants_list', pk=application.project_id)
+
+
+@login_required
+def accept_application(request, pk):
+    return update_application_status(request, pk, Application.Status.ACCEPTED)
+
+
+@login_required
+def reject_application(request, pk):
+    return update_application_status(request, pk, Application.Status.REJECTED)
+
 
 
 @login_required

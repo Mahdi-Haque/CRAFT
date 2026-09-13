@@ -84,8 +84,31 @@
                 </div>
             </div>
 
-            <!-- Student Action CTA -->
-            {% if user.is_student %}
+            <!-- Action CTA -->
+            {% if is_owner %}
+                <a href="{% url 'applications:applicants_list' project.pk %}" class="btn btn-primary w-100 py-2">
+                    👥 Manage Received Applications ({{ project.applicant_count }}) &rarr;
+                </a>
+            {% elif user_application %}
+                <div class="p-3 bg-light rounded-3 border">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold text-dark small">Application Submitted</span>
+                        {% if user_application.status == 'accepted' %}
+                            <span class="badge bg-success">Accepted</span>
+                        {% elif user_application.status == 'rejected' %}
+                            <span class="badge bg-danger">Rejected</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Pending</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted small mb-2" style="font-size: 0.825rem;">
+                        Submitted on {{ user_application.applied_at|date:"M d, Y" }}.
+                    </p>
+                    <a href="{% url 'applications:student_dashboard' %}" class="btn btn-outline-primary btn-sm w-100">
+                        View in My Dashboard
+                    </a>
+                </div>
+            {% elif user.is_student %}
                 {% if project.status == 'open' %}
                     <a href="{% url 'applications:project_apply' project.pk %}" class="btn btn-primary w-100 py-2">
                         Apply for this Project &rarr;

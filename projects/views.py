@@ -2,11 +2,28 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Q, Count
+from django.db.models import Q, Count, F
 from django.shortcuts import render, redirect, get_object_or_404
 
 from .forms import ProjectForm
 from .models import Project
+
+SORT_OPTIONS = [
+    ('newest', 'Newest first'),
+    ('oldest', 'Oldest first'),
+    ('budget_high', 'Budget: High to Low'),
+    ('budget_low', 'Budget: Low to High'),
+    ('deadline', 'Deadline: Nearest first'),
+]
+
+SORT_ORDERING = {
+    'newest': ('-created_at',),
+    'oldest': ('created_at',),
+    'budget_high': ('-budget', '-created_at'),
+    'budget_low': ('budget', '-created_at'),
+    'deadline': (F('deadline').asc(nulls_last=True), '-created_at'),
+}
+
 
 
 def client_required(user):
@@ -29,6 +46,17 @@ def project_list(request):
     selected_category = request.GET.get('category', '').strip()
     if selected_category:
         projects = projects.filter(category__iexact=selected_category)
+
+    # Sorting
+    raw_sort = request.GET.get('sort', '').strip().lower()
+    if raw_sort in SORT_ORDERING:
+        selected_sort = raw_sort
+        sort_query = raw_sort
+    else:
+        selected_sort = 'newest'
+        sort_query = ''
+
+    projects = projects.order_by(*SORT_ORDERING[selected_sort])
 
     # Categories for filter dropdown: distinct non-empty categories from existing projects
     raw_categories = (
@@ -65,6 +93,10 @@ def project_list(request):
         'query': query,
         'selected_category': selected_category,
         'categories': categories,
+        'selected_sort': selected_sort,
+        'sort': selected_sort,
+        'sort_query': sort_query,
+        'sort_options': SORT_OPTIONS,
         'applied_ids': applied_ids,
     })
 
@@ -72,15 +104,19 @@ def project_list(request):
 @login_required
 def project_detail(request, pk):
     """
-    Owned by Person B. Shows project info only. Application status,
-    the Apply button target, and the applicant list all live on pages
-    owned by Person C ('applications' app) and are linked to by URL
-    name only - this view never touches the Application model.
+    Owned by Person B. Shows project info and handles CTA state.
+    Queries user's application status via related_name contract if student.
     """
     project = get_object_or_404(Project, pk=pk)
     is_owner = request.user.is_authenticated and project.client_id == request.user.id
+    user_application = None
+    if request.user.is_authenticated and request.user.is_student and not is_owner:
+        user_application = project.applications.filter(student=request.user).first()
+
     return render(request, 'projects/project_detail.html', {
-        'project': project, 'is_owner': is_owner,
+        'project': project,
+        'is_owner': is_owner,
+        'user_application': user_application,
     })
 
 
