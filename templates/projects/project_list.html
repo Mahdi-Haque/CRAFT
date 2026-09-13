@@ -20,18 +20,28 @@
 <!-- Search & Filtering Bar -->
 <div class="card p-3 mb-4 shadow-sm">
     <form method="get" class="row g-2 align-items-center">
-        <div class="col-12 col-md-9">
+        <div class="col-12 col-md-6">
             <div class="input-group">
                 <span class="input-group-text bg-white border-end-0 text-muted">🔍</span>
                 <input type="text" name="q" value="{{ query }}" class="form-control border-start-0" placeholder="Search projects by title, keywords, required skills, or category..." data-card-filter=".cw-project-item">
             </div>
         </div>
-        <div class="col-6 col-md-2">
-            <button class="btn btn-primary w-100" type="submit">Search</button>
+        <div class="col-12 col-sm-6 col-md-4">
+            <select name="category" class="form-select" aria-label="Filter by category">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                    <option value="{{ cat }}" {% if selected_category|lower == cat|lower %}selected{% endif %}>{{ cat }}</option>
+                {% endfor %}
+            </select>
         </div>
-        {% if query %}
-            <div class="col-6 col-md-1">
-                <a href="{% url 'projects:project_list' %}" class="btn btn-outline-secondary w-100" title="Clear search">Clear</a>
+        <div class="col-6 col-md-2">
+            <button class="btn btn-primary w-100" type="submit">Filter</button>
+        </div>
+        {% if query or selected_category %}
+            <div class="col-12 text-md-end mt-2">
+                <a href="{% url 'projects:project_list' %}" class="text-muted small text-decoration-none" title="Reset all filters">
+                    ✕ Reset all filters
+                </a>
             </div>
         {% endif %}
     </form>
@@ -88,13 +98,17 @@
                 <div class="cw-empty-icon">📂</div>
                 <h4 class="cw-empty-title">No Open Projects Found</h4>
                 <p class="cw-empty-desc">
-                    {% if query %}
+                    {% if query and selected_category %}
+                        No projects match your query "{{ query }}" in category "{{ selected_category }}". Try searching for different keywords or clear the filter.
+                    {% elif query %}
                         No projects match your query "{{ query }}". Try searching for different keywords or clear the filter.
+                    {% elif selected_category %}
+                        No projects found in category "{{ selected_category }}". Try selecting a different category or clear the filter.
                     {% else %}
                         There are currently no open projects posted. Check back soon or post an opportunity for the campus!
                     {% endif %}
                 </p>
-                {% if query %}
+                {% if query or selected_category %}
                     <a href="{% url 'projects:project_list' %}" class="btn btn-outline-secondary btn-sm">Clear Search Filter</a>
                 {% elif user.is_client or user.is_admin_role %}
                     <a href="{% url 'projects:project_create' %}" class="btn btn-primary btn-sm">Post a New Project</a>
@@ -103,4 +117,52 @@
         </div>
     {% endfor %}
 </div>
+
+<!-- Pagination Controls -->
+{% if page_obj.has_other_pages %}
+    <div class="d-flex justify-content-center mt-5">
+        <nav aria-label="Projects pagination">
+            <ul class="pagination">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}" aria-label="Previous">
+                            &laquo; Previous
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link" aria-hidden="true">&laquo; Previous</span>
+                    </li>
+                {% endif %}
+
+                {% for p in page_obj.paginator.page_range %}
+                    {% if p == page_obj.number %}
+                        <li class="page-item active" aria-current="page">
+                            <span class="page-link">{{ p }}</span>
+                        </li>
+                    {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ p }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}">
+                                {{ p }}
+                            </a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}" aria-label="Next">
+                            Next &raquo;
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link" aria-hidden="true">Next &raquo;</span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+{% endif %}
 {% endblock %}
+

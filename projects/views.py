@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.core.paginator import Paginator
 from django.db.models import Q, Count
 from django.shortcuts import render, redirect, get_object_or_404
 
@@ -19,8 +20,31 @@ def project_list(request):
     query = request.GET.get('q', '').strip()
     if query:
         projects = projects.filter(
-            Q(title__icontains=query) | Q(description__icontains=query) | Q(category__icontains=query)
+            Q(title__icontains=query) |
+            Q(description__icontains=query) |
+            Q(category__icontains=query) |
+            Q(skills_required__icontains=query)
         )
+
+    selected_category = request.GET.get('category', '').strip()
+    if selected_category:
+        projects = projects.filter(category__iexact=selected_category)
+
+    # Categories for filter dropdown: distinct non-empty categories from existing projects
+    raw_categories = (
+        Project.objects.exclude(category__isnull=True)
+        .exclude(category='')
+        .values_list('category', flat=True)
+        .distinct()
+        .order_by('category')
+    )
+    seen = set()
+    categories = []
+    for cat in raw_categories:
+        cat_clean = cat.strip()
+        if cat_clean and cat_clean.lower() not in seen:
+            seen.add(cat_clean.lower())
+            categories.append(cat_clean)
 
     # Person B never imports applications.models.Application - only reads the
     # 'applications' related_name that Person C's model contract promises.
@@ -30,8 +54,18 @@ def project_list(request):
             Project.objects.filter(applications__student=request.user).values_list('id', flat=True)
         )
 
+    # Pagination: 6 projects per page (fits 3-col desktop and 2-col tablet grids)
+    paginator = Paginator(projects, 6)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'projects/project_list.html', {
-        'projects': projects, 'query': query, 'applied_ids': applied_ids,
+        'projects': page_obj,
+        'page_obj': page_obj,
+        'query': query,
+        'selected_category': selected_category,
+        'categories': categories,
+        'applied_ids': applied_ids,
     })
 
 
