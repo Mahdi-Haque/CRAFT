@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -436,5 +437,257 @@ class ProjectsTests(TestCase):
         res_p2 = self.client.get(reverse('projects:project_list'), {'page': 2})
         self.assertContains(res_p2, '<nav aria-label="Projects pagination">')
 
+    def test_default_sorting_is_newest_first(self):
+        p2 = Project.objects.create(
+            client=self.client_user,
+            title='Second Project',
+            description='Second project description',
+            category='Robotics',
+            budget=500.00,
+            status=Project.Status.OPEN
+        )
+        p3 = Project.objects.create(
+            client=self.client_user,
+            title='Third Project',
+            description='Third project description',
+            category='Robotics',
+            budget=100.00,
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'))
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['selected_sort'], 'newest')
+        projects = list(res.context['projects'])
+        self.assertEqual(projects[0], p3)
+        self.assertEqual(projects[1], p2)
+        self.assertEqual(projects[2], self.project)
 
+    def test_sort_newest_explicit(self):
+        p2 = Project.objects.create(
+            client=self.client_user,
+            title='Second Project',
+            description='Second project description',
+            category='Robotics',
+            budget=500.00,
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'sort': 'newest'})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['selected_sort'], 'newest')
+        projects = list(res.context['projects'])
+        self.assertEqual(projects[0], p2)
+        self.assertEqual(projects[1], self.project)
 
+    def test_sort_oldest_first(self):
+        p2 = Project.objects.create(
+            client=self.client_user,
+            title='Second Project',
+            description='Second project description',
+            category='Robotics',
+            budget=500.00,
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'sort': 'oldest'})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['selected_sort'], 'oldest')
+        projects = list(res.context['projects'])
+        self.assertEqual(projects[0], self.project)
+        self.assertEqual(projects[1], p2)
+
+    def test_sort_budget_high_to_low(self):
+        p_low = Project.objects.create(
+            client=self.client_user,
+            title='Low Budget Project',
+            description='Low budget project',
+            category='Robotics',
+            budget=50.00,
+            status=Project.Status.OPEN
+        )
+        p_high = Project.objects.create(
+            client=self.client_user,
+            title='High Budget Project',
+            description='High budget project',
+            category='Robotics',
+            budget=1000.00,
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'sort': 'budget_high'})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['selected_sort'], 'budget_high')
+        projects = list(res.context['projects'])
+        self.assertEqual(projects[0], p_high)
+        self.assertEqual(projects[1], self.project)
+        self.assertEqual(projects[2], p_low)
+
+    def test_sort_budget_low_to_high(self):
+        p_low = Project.objects.create(
+            client=self.client_user,
+            title='Low Budget Project',
+            description='Low budget project',
+            category='Robotics',
+            budget=50.00,
+            status=Project.Status.OPEN
+        )
+        p_high = Project.objects.create(
+            client=self.client_user,
+            title='High Budget Project',
+            description='High budget project',
+            category='Robotics',
+            budget=1000.00,
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'sort': 'budget_low'})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['selected_sort'], 'budget_low')
+        projects = list(res.context['projects'])
+        self.assertEqual(projects[0], p_low)
+        self.assertEqual(projects[1], self.project)
+        self.assertEqual(projects[2], p_high)
+
+    def test_sort_deadline_nearest_first_with_nulls_last(self):
+        today = date.today()
+        p_soon = Project.objects.create(
+            client=self.client_user,
+            title='Deadline Soon Project',
+            description='Finishes soon',
+            category='Robotics',
+            budget=100.00,
+            deadline=today + timedelta(days=2),
+            status=Project.Status.OPEN
+        )
+        p_later = Project.objects.create(
+            client=self.client_user,
+            title='Deadline Later Project',
+            description='Finishes later',
+            category='Robotics',
+            budget=100.00,
+            deadline=today + timedelta(days=10),
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'sort': 'deadline'})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['selected_sort'], 'deadline')
+        projects = list(res.context['projects'])
+        self.assertEqual(projects[0], p_soon)
+        self.assertEqual(projects[1], p_later)
+        self.assertEqual(projects[2], self.project)
+
+    def test_sort_with_category_filter(self):
+        Project.objects.create(
+            client=self.client_user,
+            title='High Budget Robotics',
+            description='Description',
+            category='Robotics',
+            budget=900.00,
+            status=Project.Status.OPEN
+        )
+        Project.objects.create(
+            client=self.client_user,
+            title='High Budget Web',
+            description='Description',
+            category='Web Development',
+            budget=1000.00,
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'category': 'Robotics', 'sort': 'budget_high'})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['selected_category'], 'Robotics')
+        self.assertEqual(res.context['selected_sort'], 'budget_high')
+        projects = list(res.context['projects'])
+        self.assertEqual(len(projects), 2)
+        self.assertEqual(projects[0].title, 'High Budget Robotics')
+        self.assertEqual(projects[1].title, 'Autonomous Rover Firmware')
+
+    def test_sort_with_keyword_search(self):
+        Project.objects.create(
+            client=self.client_user,
+            title='Autonomous Drone Navigation',
+            description='Description',
+            category='Robotics',
+            budget=800.00,
+            status=Project.Status.OPEN
+        )
+        Project.objects.create(
+            client=self.client_user,
+            title='Autonomous Submarine',
+            description='Description',
+            category='Robotics',
+            budget=100.00,
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'q': 'Autonomous', 'sort': 'budget_low'})
+        self.assertEqual(res.status_code, 200)
+        projects = list(res.context['projects'])
+        self.assertEqual(len(projects), 3)
+        self.assertEqual(projects[0].title, 'Autonomous Submarine')
+        self.assertEqual(projects[1].title, 'Autonomous Rover Firmware')
+        self.assertEqual(projects[2].title, 'Autonomous Drone Navigation')
+
+    def test_sort_preserved_in_pagination_links(self):
+        for i in range(7):
+            Project.objects.create(
+                client=self.client_user,
+                title=f'Project {i}',
+                description='Description',
+                category='Robotics',
+                budget=100.00 + i,
+                status=Project.Status.OPEN
+            )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'sort': 'budget_high', 'page': 1})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'sort=budget_high')
+        self.assertContains(res, 'page=2')
+
+    def test_filtering_sorting_and_pagination_work_together(self):
+        for i in range(7):
+            Project.objects.create(
+                client=self.client_user,
+                title=f'Robotics Project {i}',
+                description='Description',
+                category='Robotics',
+                budget=100.00 + i,
+                status=Project.Status.OPEN
+            )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'category': 'Robotics', 'sort': 'budget_high', 'page': 1})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'category=Robotics')
+        self.assertContains(res, 'sort=budget_high')
+        self.assertContains(res, 'page=2')
+
+    def test_invalid_sort_parameter_falls_back_to_newest(self):
+        p2 = Project.objects.create(
+            client=self.client_user,
+            title='Second Project',
+            description='Description',
+            category='Robotics',
+            budget=500.00,
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'sort': 'invalid_xyz'})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['selected_sort'], 'newest')
+        projects = list(res.context['projects'])
+        self.assertEqual(projects[0], p2)
+        self.assertEqual(projects[1], self.project)
+
+    def test_sort_dropdown_rendered_with_selected_option(self):
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'sort': 'budget_high'})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, '<select name="sort"')
+        self.assertContains(res, 'value="newest"')
+        self.assertContains(res, 'value="oldest"')
+        self.assertContains(res, 'value="budget_high" selected')
+        self.assertContains(res, 'value="budget_low"')
+        self.assertContains(res, 'value="deadline"')
