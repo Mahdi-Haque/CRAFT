@@ -167,3 +167,274 @@ class ProjectsTests(TestCase):
         self.assertEqual(created_project.skills_required, 'Figma, Wireframing, Prototyping')
         self.assertEqual(created_project.skills_list, ['Figma', 'Wireframing', 'Prototyping'])
 
+    def test_category_filter_returns_matching_projects(self):
+        Project.objects.create(
+            client=self.client_user,
+            title='Campus Society Web Portal',
+            description='Django backend and React frontend for university club.',
+            category='Web Development',
+            budget=200.00,
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'category': 'Robotics'})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Autonomous Rover Firmware')
+        self.assertEqual(res.context['selected_category'], 'Robotics')
+        self.assertIn('Robotics', res.context['categories'])
+        self.assertIn('Web Development', res.context['categories'])
+
+    def test_category_filter_excludes_projects_from_other_categories(self):
+        Project.objects.create(
+            client=self.client_user,
+            title='Campus Society Web Portal',
+            description='Django backend and React frontend for university club.',
+            category='Web Development',
+            budget=200.00,
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'category': 'Robotics'})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Autonomous Rover Firmware')
+        self.assertNotContains(res, 'Campus Society Web Portal')
+
+    def test_keyword_search_still_works(self):
+        Project.objects.create(
+            client=self.client_user,
+            title='Campus Society Web Portal',
+            description='Django backend and React frontend for university club.',
+            category='Web Development',
+            budget=200.00,
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+
+        # Search matching Rover
+        res_rover = self.client.get(reverse('projects:project_list'), {'q': 'Rover'})
+        self.assertEqual(res_rover.status_code, 200)
+        self.assertContains(res_rover, 'Autonomous Rover Firmware')
+        self.assertNotContains(res_rover, 'Campus Society Web Portal')
+
+        # Search matching Web
+        res_web = self.client.get(reverse('projects:project_list'), {'q': 'Web'})
+        self.assertEqual(res_web.status_code, 200)
+        self.assertContains(res_web, 'Campus Society Web Portal')
+        self.assertNotContains(res_web, 'Autonomous Rover Firmware')
+
+        # Search matching nothing
+        res_none = self.client.get(reverse('projects:project_list'), {'q': 'NonExistentXYZ'})
+        self.assertEqual(res_none.status_code, 200)
+        self.assertContains(res_none, 'No Open Projects Found')
+
+    def test_keyword_search_and_category_filter_work_together(self):
+        # Project 1: Rover in Robotics (self.project)
+        # Project 2: Rover in CAD
+        Project.objects.create(
+            client=self.client_user,
+            title='Rover Chassis CAD Design',
+            description='SolidWorks CAD model for rover chassis.',
+            category='CAD Modeling',
+            budget=150.00,
+            status=Project.Status.OPEN
+        )
+        # Project 3: Drone in Robotics
+        Project.objects.create(
+            client=self.client_user,
+            title='Drone Flight Stabilization',
+            description='Quadcopter stabilization code.',
+            category='Robotics',
+            budget=180.00,
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+
+        # Query for 'Rover' in category 'Robotics'
+        res = self.client.get(reverse('projects:project_list'), {'q': 'Rover', 'category': 'Robotics'})
+        self.assertEqual(res.status_code, 200)
+        # Should include Project 1 (Rover + Robotics)
+        self.assertContains(res, 'Autonomous Rover Firmware')
+        # Should NOT include Project 2 (Rover + CAD Modeling)
+        self.assertNotContains(res, 'Rover Chassis CAD Design')
+        # Should NOT include Project 3 (Drone + Robotics)
+        self.assertNotContains(res, 'Drone Flight Stabilization')
+        # Check UI preserves both query and selected_category
+        self.assertEqual(res.context['query'], 'Rover')
+        self.assertEqual(res.context['selected_category'], 'Robotics')
+
+    def test_empty_or_invalid_category_does_not_break_page(self):
+        self.client.login(username='studentuser', password='Password123!')
+
+        # Empty category should return all open projects gracefully
+        res_empty = self.client.get(reverse('projects:project_list'), {'category': ''})
+        self.assertEqual(res_empty.status_code, 200)
+        self.assertContains(res_empty, 'Autonomous Rover Firmware')
+        self.assertEqual(res_empty.context['selected_category'], '')
+
+        # Whitespace-only category should return all open projects gracefully
+        res_whitespace = self.client.get(reverse('projects:project_list'), {'category': '   '})
+        self.assertEqual(res_whitespace.status_code, 200)
+        self.assertContains(res_whitespace, 'Autonomous Rover Firmware')
+
+        # Invalid/non-existent category should return empty list gracefully without error
+        res_invalid = self.client.get(reverse('projects:project_list'), {'category': 'NonExistentCategoryXYZ'})
+        self.assertEqual(res_invalid.status_code, 200)
+        self.assertEqual(len(res_invalid.context['projects']), 0)
+        self.assertContains(res_invalid, 'No Open Projects Found')
+        self.assertContains(res_invalid, 'NonExistentCategoryXYZ')
+
+    def test_project_list_is_paginated(self):
+        # Create 7 additional projects (total 8 with self.project)
+        for i in range(7):
+            Project.objects.create(
+                client=self.client_user,
+                title=f'Test Pagination Project {i}',
+                description=f'Description for project {i}',
+                category='Robotics',
+                budget=100.00 + i,
+                status=Project.Status.OPEN
+            )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'))
+        self.assertEqual(res.status_code, 200)
+        page_obj = res.context['page_obj']
+        self.assertEqual(page_obj.paginator.num_pages, 2)
+        self.assertEqual(page_obj.paginator.count, 8)
+
+    def test_first_page_contains_expected_number_of_projects(self):
+        for i in range(7):
+            Project.objects.create(
+                client=self.client_user,
+                title=f'Test Pagination Project {i}',
+                description=f'Description for project {i}',
+                category='Robotics',
+                budget=100.00 + i,
+                status=Project.Status.OPEN
+            )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'))
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.context['projects']), 6)
+        self.assertEqual(res.context['page_obj'].number, 1)
+
+    def test_second_page_contains_remaining_projects(self):
+        for i in range(7):
+            Project.objects.create(
+                client=self.client_user,
+                title=f'Test Pagination Project {i}',
+                description=f'Description for project {i}',
+                category='Robotics',
+                budget=100.00 + i,
+                status=Project.Status.OPEN
+            )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'page': 2})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.context['projects']), 2)
+        self.assertEqual(res.context['page_obj'].number, 2)
+
+    def test_pagination_preserves_keyword_search(self):
+        for i in range(7):
+            Project.objects.create(
+                client=self.client_user,
+                title=f'Robotics Subsystem {i}',
+                description='Robotics build',
+                category='Robotics',
+                budget=100.00,
+                status=Project.Status.OPEN
+            )
+        Project.objects.create(
+            client=self.client_user,
+            title='Web Portal App',
+            description='Web build',
+            category='Web',
+            budget=100.00,
+            status=Project.Status.OPEN
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'q': 'Robotics', 'page': 2})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['query'], 'Robotics')
+        self.assertContains(res, 'q=Robotics')
+        self.assertContains(res, 'page=1')
+
+    def test_pagination_preserves_category_filtering(self):
+        for i in range(7):
+            Project.objects.create(
+                client=self.client_user,
+                title=f'Robotics Project {i}',
+                description='Robotics build',
+                category='Robotics',
+                budget=100.00,
+                status=Project.Status.OPEN
+            )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'category': 'Robotics', 'page': 2})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['selected_category'], 'Robotics')
+        self.assertContains(res, 'category=Robotics')
+        self.assertContains(res, 'page=1')
+
+    def test_invalid_page_parameters_handled_gracefully(self):
+        for i in range(7):
+            Project.objects.create(
+                client=self.client_user,
+                title=f'Test Project {i}',
+                description='Description',
+                category='Robotics',
+                budget=100.00,
+                status=Project.Status.OPEN
+            )
+        self.client.login(username='studentuser', password='Password123!')
+        res_invalid = self.client.get(reverse('projects:project_list'), {'page': 'not_an_int'})
+        self.assertEqual(res_invalid.status_code, 200)
+        self.assertEqual(res_invalid.context['page_obj'].number, 1)
+
+        res_empty = self.client.get(reverse('projects:project_list'), {'page': ''})
+        self.assertEqual(res_empty.status_code, 200)
+        self.assertEqual(res_empty.context['page_obj'].number, 1)
+
+    def test_out_of_range_page_parameters_handled_gracefully(self):
+        for i in range(7):
+            Project.objects.create(
+                client=self.client_user,
+                title=f'Test Project {i}',
+                description='Description',
+                category='Robotics',
+                budget=100.00,
+                status=Project.Status.OPEN
+            )
+        self.client.login(username='studentuser', password='Password123!')
+        res_overflow = self.client.get(reverse('projects:project_list'), {'page': 9999})
+        self.assertEqual(res_overflow.status_code, 200)
+        self.assertEqual(res_overflow.context['page_obj'].number, 2)
+
+    def test_pagination_controls_appear_correctly(self):
+        self.client.login(username='studentuser', password='Password123!')
+        # Single page: controls should NOT appear
+        res_single = self.client.get(reverse('projects:project_list'))
+        self.assertNotContains(res_single, '<nav aria-label="Projects pagination">')
+
+        # Create enough projects to trigger pagination
+        for i in range(7):
+            Project.objects.create(
+                client=self.client_user,
+                title=f'Pagination Control Project {i}',
+                description='Description',
+                category='Robotics',
+                budget=100.00,
+                status=Project.Status.OPEN
+            )
+        # Page 1: controls appear, Previous is disabled, Next is active
+        res_p1 = self.client.get(reverse('projects:project_list'))
+        self.assertContains(res_p1, '<nav aria-label="Projects pagination">')
+        self.assertContains(res_p1, 'Previous')
+        self.assertContains(res_p1, 'Next')
+        self.assertContains(res_p1, 'active')
+
+        # Page 2: controls appear, Next is disabled
+        res_p2 = self.client.get(reverse('projects:project_list'), {'page': 2})
+        self.assertContains(res_p2, '<nav aria-label="Projects pagination">')
+
+
+
