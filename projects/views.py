@@ -104,15 +104,19 @@ def project_list(request):
 @login_required
 def project_detail(request, pk):
     """
-    Owned by Person B. Shows project info only. Application status,
-    the Apply button target, and the applicant list all live on pages
-    owned by Person C ('applications' app) and are linked to by URL
-    name only - this view never touches the Application model.
+    Owned by Person B. Shows project info and handles CTA state.
+    Queries user's application status via related_name contract if student.
     """
     project = get_object_or_404(Project, pk=pk)
     is_owner = request.user.is_authenticated and project.client_id == request.user.id
+    user_application = None
+    if request.user.is_authenticated and request.user.is_student and not is_owner:
+        user_application = project.applications.filter(student=request.user).first()
+
     return render(request, 'projects/project_detail.html', {
-        'project': project, 'is_owner': is_owner,
+        'project': project,
+        'is_owner': is_owner,
+        'user_application': user_application,
     })
 
 

@@ -80,24 +80,24 @@
                                 {% endif %}
                             </td>
                             <td class="text-end">
-                                <div class="d-inline-flex gap-1">
-                                    {% if app.status != 'accepted' %}
-                                        <form method="post" action="{% url 'applications:application_status' app.pk 'accepted' %}" class="d-inline" data-no-disable="true">
+                                {% if app.status == 'pending' %}
+                                    <div class="d-inline-flex gap-1">
+                                        <form method="post" action="{% url 'applications:application_accept' app.pk %}" class="d-inline">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-sm btn-success" title="Accept student into project">
                                                 ✓ Accept
                                             </button>
                                         </form>
-                                    {% endif %}
-                                    {% if app.status != 'rejected' %}
-                                        <form method="post" action="{% url 'applications:application_status' app.pk 'rejected' %}" class="d-inline" data-no-disable="true">
+                                        <form method="post" action="{% url 'applications:application_reject' app.pk %}" class="d-inline">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-sm btn-outline-danger" title="Decline application">
                                                 ✕ Reject
                                             </button>
                                         </form>
-                                    {% endif %}
-                                </div>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted small">Finalized</span>
+                                {% endif %}
                             </td>
                         </tr>
                     {% endfor %}
