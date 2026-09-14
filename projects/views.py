@@ -6,7 +6,7 @@ from django.db.models import Q, Count, F
 from django.shortcuts import render, redirect, get_object_or_404
 
 from .forms import ProjectForm
-from .models import Project
+from .models import Project, ProjectTeam, ProjectMembership
 
 SORT_OPTIONS = [
     ('newest', 'Newest first'),
@@ -229,4 +229,34 @@ def project_cancel(request, pk):
     project.save()
     messages.success(request, "Project has been closed.")
     return redirect('projects:project_detail', pk=project.pk)
+
+
+@login_required
+def project_workspace(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+
+    # Object-level authorization: owner, admin, or accepted student team member
+    is_owner = (project.client_id == request.user.id) or request.user.is_admin_role
+    is_team_member = False
+
+    if hasattr(project, 'team') and project.team.members.filter(id=request.user.id).exists():
+        is_team_member = True
+    elif project.applications.filter(student=request.user, status='accepted').exists():
+        is_team_member = True
+        team, _ = ProjectTeam.objects.get_or_create(project=project)
+        ProjectMembership.objects.get_or_create(team=team, user=request.user)
+
+    if not (is_owner or is_team_member):
+        raise PermissionDenied("You must be an active project team participant to access this workspace.")
+
+    team, _ = ProjectTeam.objects.get_or_create(project=project)
+    team_members = team.members.all()
+
+    return render(request, 'projects/workspace.html', {
+        'project': project,
+        'team': team,
+        'team_members': team_members,
+        'is_owner': is_owner,
+    })
+
 

@@ -75,3 +75,60 @@ class Project(models.Model):
     def is_open(self):
         return self.status == self.Status.OPEN
 
+    def get_team(self):
+        team, _ = ProjectTeam.objects.get_or_create(project=self)
+        return team
+
+    def is_participant(self, user):
+        if not user or not user.is_authenticated:
+            return False
+        if self.client_id == user.id or user.is_admin_role:
+            return True
+        if hasattr(self, 'team'):
+            return self.team.members.filter(id=user.id).exists()
+        return False
+
+
+class ProjectTeam(models.Model):
+    project = models.OneToOneField(
+        Project, on_delete=models.CASCADE, related_name='team'
+    )
+    members = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, through='ProjectMembership', related_name='project_teams', blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Team for {self.project.title}"
+
+    def add_member(self, user):
+        membership, _ = ProjectMembership.objects.get_or_create(team=self, user=user)
+        return membership
+
+    def is_member(self, user):
+        if not user or not user.is_authenticated:
+            return False
+        return self.members.filter(id=user.id).exists() or self.project.client_id == user.id
+
+
+class ProjectMembership(models.Model):
+    team = models.ForeignKey(
+        ProjectTeam, on_delete=models.CASCADE, related_name='memberships'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='project_memberships'
+    )
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('team', 'user')
+        ordering = ['joined_at']
+
+    def __str__(self):
+        return f"{self.user.username} in {self.team.project.title}"
+
+
+# Developer alias
+Team = ProjectTeam
+
+

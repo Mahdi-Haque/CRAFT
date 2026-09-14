@@ -2,11 +2,13 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.shortcuts import render, redirect, get_object_or_404
 
 from .forms import ApplicationForm
 from .models import Application
 from projects.models import Project
+from projects.models import Project, ProjectTeam, ProjectMembership
 
 User = get_user_model()
 
@@ -90,6 +92,15 @@ def update_application_status(request, pk, new_status):
             application.project.status = Project.Status.IN_PROGRESS
             application.project.save()
         messages.success(request, "Application accepted. Project is now in progress.")
+        with transaction.atomic():
+            application.status = Application.Status.ACCEPTED
+            application.save()
+            team, _ = ProjectTeam.objects.get_or_create(project=application.project)
+            ProjectMembership.objects.get_or_create(team=team, user=application.student)
+            if application.project.status == Project.Status.OPEN:
+                application.project.status = Project.Status.IN_PROGRESS
+                application.project.save()
+        messages.success(request, "Application accepted. Student added to team and project is now in progress.")
         return redirect('applications:applicants_list', pk=application.project_id)
     else:
         application.status = Application.Status.REJECTED

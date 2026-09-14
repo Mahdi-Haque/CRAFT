@@ -48,6 +48,9 @@
                         <a href="{% url 'applications:applicants_list' project.pk %}" class="btn btn-primary btn-sm">
                             👥 View Applicants ({{ project.applicant_count }})
                         </a>
+                        <a href="{% url 'projects:project_workspace' project.pk %}" class="btn btn-outline-primary btn-sm">
+                            🚀 Team Workspace
+                        </a>
                         {% if project.status == 'open' %}
                             <form method="post" action="{% url 'projects:project_start' project.pk %}" class="d-inline">
                                 {% csrf_token %}
@@ -117,8 +120,11 @@
 
             <!-- Action CTA -->
             {% if is_owner %}
-                <a href="{% url 'applications:applicants_list' project.pk %}" class="btn btn-primary w-100 py-2">
+                <a href="{% url 'applications:applicants_list' project.pk %}" class="btn btn-primary w-100 py-2 mb-2">
                     👥 Manage Received Applications ({{ project.applicant_count }}) &rarr;
+                </a>
+                <a href="{% url 'projects:project_workspace' project.pk %}" class="btn btn-outline-primary w-100 py-2">
+                    🚀 Enter Team Workspace &rarr;
                 </a>
             {% elif user_application %}
                 <div class="p-3 bg-light rounded-3 border">
@@ -135,9 +141,14 @@
                     <p class="text-muted small mb-2" style="font-size: 0.825rem;">
                         Submitted on {{ user_application.applied_at|date:"M d, Y" }}.
                     </p>
-                    <a href="{% url 'applications:student_dashboard' %}" class="btn btn-outline-primary btn-sm w-100">
+                    <a href="{% url 'applications:student_dashboard' %}" class="btn btn-outline-primary btn-sm w-100 mb-2">
                         View in My Dashboard
                     </a>
+                    {% if user_application.status == 'accepted' %}
+                        <a href="{% url 'projects:project_workspace' project.pk %}" class="btn btn-success btn-sm w-100">
+                            🚀 Enter Team Workspace &rarr;
+                        </a>
+                    {% endif %}
                 </div>
             {% elif user.is_student %}
                 {% if project.status == 'open' %}

@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block title %}Workspace &middot; {{ project.title }}{% endblock %}
+
+{% block content %}
+<!-- Back navigation -->
+<div class="mb-3">
+    <a href="{% url 'projects:project_detail' project.pk %}" class="text-muted small text-decoration-none d-inline-flex align-items-center gap-1">
+        &larr; Back to "{{ project.title }}"
+    </a>
+</div>
+
+<!-- Workspace Header -->
+<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4 pb-2 border-bottom">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <h2 class="fw-bold mb-0">Team Workspace</h2>
+            {% if is_owner %}
+                <span class="badge bg-primary">Project Owner</span>
+            {% else %}
+                <span class="badge bg-success">Team Member</span>
+            {% endif %}
+        </div>
+        <p class="text-muted small mb-0">Collaborative hub for active project members, client contact, and scope overview.</p>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-outline-secondary btn-sm">
+            📄 Project Details
+        </a>
+        {% if is_owner %}
+            <a href="{% url 'applications:applicants_list' project.pk %}" class="btn btn-primary btn-sm">
+                👥 Manage Applicants ({{ project.applicant_count }})
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Project Summary Card -->
+    <div class="col-12 col-lg-8">
+        <div class="card p-4 shadow-sm mb-4">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                {% if project.category %}
+                    <span class="badge bg-primary">{{ project.category }}</span>
+                {% endif %}
+                {% if project.status == 'open' %}
+                    <span class="badge bg-success">Open</span>
+                {% elif project.status == 'in_progress' %}
+                    <span class="badge bg-info text-dark">In Progress</span>
+                {% elif project.status == 'completed' %}
+                    <span class="badge bg-primary">Completed</span>
+                {% else %}
+                    <span class="badge bg-secondary">Closed</span>
+                {% endif %}
+                <span class="text-muted small ms-auto">Posted {{ project.created_at|date:"F d, Y" }}</span>
+            </div>
+
+            <h3 class="fw-bold mb-3">{{ project.title }}</h3>
+
+            <h6 class="fw-bold text-dark mb-2">Scope & Description</h6>
+            <div class="text-secondary small mb-3" style="white-space: pre-line; line-height: 1.6;">
+                {{ project.description }}
+            </div>
+
+            {% if project.skills_list %}
+                <h6 class="fw-bold text-dark mb-2">Target Skills</h6>
+                <div class="d-flex flex-wrap gap-1 mb-0">
+                    {% for skill in project.skills_list %}
+                        <span class="cw-skill-chip">{{ skill }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Team Members Section -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+                <h5 class="mb-0 fw-bold">Active Team Members</h5>
+                <span class="badge bg-secondary">{{ team_members|length }} Accepted Student{{ team_members|length|pluralize }}</span>
+            </div>
+            <div class="card-body p-4">
+                {% if team_members %}
+                    <div class="row g-3">
+                        {% for member in team_members %}
+                            <div class="col-12 col-md-6">
+                                <div class="p-3 border rounded-3 bg-light h-100 d-flex flex-column justify-content-between">
+                                    <div>
+                                        <div class="d-flex align-items-center gap-2 mb-2">
+                                            <div class="cw-user-avatar" style="width: 40px; height: 40px; font-size: 1rem;">
+                                                {{ member.username|make_list|first|upper }}
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold text-dark">{{ member.get_full_name|default:member.username }}</div>
+                                                <div class="text-muted small">@{{ member.username }}</div>
+                                            </div>
+                                            <span class="badge bg-success ms-auto small">Active</span>
+                                        </div>
+                                        <div class="text-muted small mb-2">
+                                            ✉️ {{ member.email }}
+                                        </div>
+                                        {% if member.bio %}
+                                            <p class="text-secondary small mb-2">{{ member.bio|truncatewords:20 }}</p>
+                                        {% endif %}
+                                    </div>
+                                    {% if member.skills %}
+                                        <div class="d-flex flex-wrap gap-1 mt-2">
+                                            {% for skill in member.skills.split %}
+                                                <span class="cw-skill-chip" style="font-size: 0.7rem; padding: 0.1rem 0.35rem;">
+                                                    {{ skill|cut:"," }}
+                                                </span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="cw-empty-state my-2 py-4 text-center">
+                        <div class="cw-empty-icon mb-2" style="font-size: 2rem;">👥</div>
+                        <h6 class="cw-empty-title">No Accepted Students Yet</h6>
+                        <p class="cw-empty-desc text-muted small">When proposals are accepted from candidates, student collaborators will appear in this workspace roster.</p>
+                        {% if is_owner %}
+                            <a href="{% url 'applications:applicants_list' project.pk %}" class="btn btn-primary btn-sm">
+                                Review Received Applications
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar: Owner Profile & Project Meta -->
+    <div class="col-12 col-lg-4">
+        <!-- Client / Owner Card -->
+        <div class="card p-4 shadow-sm mb-4">
+            <h6 class="fw-bold text-uppercase text-muted small mb-3">Project Lead / Owner</h6>
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <div class="cw-user-avatar" style="width: 48px; height: 48px; font-size: 1.2rem;">
+                    {{ project.client.username|make_list|first|upper }}
+                </div>
+                <div>
+                    <div class="fw-bold text-dark">{{ project.client.company_name|default:project.client.username }}</div>
+                    <div class="text-muted small">@{{ project.client.username }} &middot; Client</div>
+                </div>
+            </div>
+            <div class="text-muted small mb-2">
+                ✉️ {{ project.client.email }}
+            </div>
+            {% if project.client.bio %}
+                <p class="text-secondary small mb-0">{{ project.client.bio }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Project Overview Stats -->
+        <div class="card p-4 shadow-sm mb-4">
+            <h6 class="fw-bold mb-3">Project Metadata</h6>
+            <div class="mb-3 pb-2 border-bottom">
+                <div class="text-muted small text-uppercase fw-semibold">Budget</div>
+                <div class="fs-4 fw-bold text-primary">${{ project.budget }}</div>
+            </div>
+            <div class="mb-3 pb-2 border-bottom">
+                <div class="text-muted small text-uppercase fw-semibold">Target Deadline</div>
+                <div class="fw-semibold text-dark">
+                    {% if project.deadline %}
+                        📅 {{ project.deadline|date:"M d, Y" }}
+                    {% else %}
+                        <span class="text-muted">Flexible</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div>
+                <div class="text-muted small text-uppercase fw-semibold">Workspace Status</div>
+                <div class="fw-semibold text-dark">
+                    {% if project.status == 'in_progress' %}
+                        🟢 Active & In Progress
+                    {% elif project.status == 'completed' %}
+                        🏁 Project Completed
+                    {% elif project.status == 'closed' %}
+                        📁 Project Closed
+                    {% else %}
+                        📂 Open for Candidates
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
