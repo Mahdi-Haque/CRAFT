@@ -691,3 +691,202 @@ class ProjectsTests(TestCase):
         self.assertContains(res, 'value="budget_high" selected')
         self.assertContains(res, 'value="budget_low"')
         self.assertContains(res, 'value="deadline"')
+
+
+class ProjectLifecycleTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.owner = User.objects.create_user(
+            username='clientowner',
+            email='clientowner@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.CLIENT,
+            company_name='RUET Robotics Club'
+        )
+        self.other_client = User.objects.create_user(
+            username='otherclient',
+            email='otherclient@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.CLIENT,
+            company_name='Autonomous Systems'
+        )
+        self.student = User.objects.create_user(
+            username='studentdev',
+            email='studentdev@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT
+        )
+        self.project = Project.objects.create(
+            client=self.owner,
+            title='Autonomous Delivery Drone',
+            description='Firmware and path planning in ROS2.',
+            category='Robotics',
+            budget=400.00,
+            status=Project.Status.OPEN
+        )
+
+    def test_owner_can_start_open_project(self):
+        self.client.login(username='clientowner', password='Password123!')
+        res = self.client.post(reverse('projects:project_start', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.IN_PROGRESS)
+
+    def test_non_owner_cannot_start_or_change_lifecycle(self):
+        self.client.login(username='otherclient', password='Password123!')
+        res = self.client.post(reverse('projects:project_start', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 403)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.OPEN)
+
+    def test_unauthenticated_cannot_change_lifecycle(self):
+        res = self.client.post(reverse('projects:project_start', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 302)
+        self.assertIn('/login/', res.url)
+
+    def test_owner_can_mark_in_progress_project_completed(self):
+        self.project.status = Project.Status.IN_PROGRESS
+        self.project.save()
+
+        self.client.login(username='clientowner', password='Password123!')
+        res = self.client.post(reverse('projects:project_complete', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.COMPLETED)
+
+    def test_non_owner_cannot_complete_project(self):
+        self.project.status = Project.Status.IN_PROGRESS
+        self.project.save()
+
+        self.client.login(username='studentdev', password='Password123!')
+        res = self.client.post(reverse('projects:project_complete', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 403)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.IN_PROGRESS)
+
+    def test_owner_can_cancel_open_or_in_progress_project(self):
+        self.client.login(username='clientowner', password='Password123!')
+        # Cancel open project
+        res = self.client.post(reverse('projects:project_cancel', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.CLOSED)
+
+        # Cancel in-progress project using close alias
+        proj2 = Project.objects.create(
+            client=self.owner,
+            title='In Progress Project',
+            description='Test description',
+            budget=200.00,
+            status=Project.Status.IN_PROGRESS
+        )
+        res2 = self.client.post(reverse('projects:project_close', kwargs={'pk': proj2.pk}))
+        self.assertEqual(res2.status_code, 302)
+        proj2.refresh_from_db()
+        self.assertEqual(proj2.status, Project.Status.CLOSED)
+
+    def test_invalid_lifecycle_transitions_rejected(self):
+        self.client.login(username='clientowner', password='Password123!')
+        
+        # Cannot complete an OPEN project directly
+        res = self.client.post(reverse('projects:project_complete', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.OPEN)
+
+        # Cannot start a COMPLETED project
+        self.project.status = Project.Status.COMPLETED
+        self.project.save()
+        res_start = self.client.post(reverse('projects:project_start', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res_start.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.COMPLETED)
+
+        # Cannot cancel an already COMPLETED project
+        res_cancel = self.client.post(reverse('projects:project_cancel', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res_cancel.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.COMPLETED)
+
+    def test_completed_project_cannot_be_reopened(self):
+        self.project.status = Project.Status.COMPLETED
+        self.project.save()
+
+        self.client.login(username='clientowner', password='Password123!')
+        # Via start action
+        res = self.client.post(reverse('projects:project_start', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.COMPLETED)
+
+        # Via edit form
+        res_edit = self.client.post(reverse('projects:project_update', kwargs={'pk': self.project.pk}), {
+            'title': self.project.title,
+            'description': self.project.description,
+            'budget': self.project.budget,
+            'status': 'open',
+        })
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.COMPLETED)
+
+    def test_closed_project_cannot_be_reopened(self):
+        self.project.status = Project.Status.CLOSED
+        self.project.save()
+
+        self.client.login(username='clientowner', password='Password123!')
+        # Via start action
+        res = self.client.post(reverse('projects:project_start', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.CLOSED)
+
+        # Via complete action
+        res_complete = self.client.post(reverse('projects:project_complete', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res_complete.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.CLOSED)
+
+        # Via edit form
+        res_edit = self.client.post(reverse('projects:project_update', kwargs={'pk': self.project.pk}), {
+            'title': self.project.title,
+            'description': self.project.description,
+            'budget': self.project.budget,
+            'status': 'open',
+        })
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.CLOSED)
+
+    def test_lifecycle_get_requests_are_denied(self):
+        self.client.login(username='clientowner', password='Password123!')
+        res1 = self.client.get(reverse('projects:project_start', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res1.status_code, 403)
+        res2 = self.client.get(reverse('projects:project_complete', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res2.status_code, 403)
+        res3 = self.client.get(reverse('projects:project_cancel', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res3.status_code, 403)
+
+    def test_project_detail_reflects_lifecycle_controls_and_badges(self):
+        # Open project
+        self.client.login(username='clientowner', password='Password123!')
+        res_open = self.client.get(reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
+        self.assertContains(res_open, 'Open for Applications')
+        self.assertContains(res_open, 'Start Project')
+        self.assertContains(res_open, 'Close Project')
+
+        # In-Progress project
+        self.project.status = Project.Status.IN_PROGRESS
+        self.project.save()
+        res_prog = self.client.get(reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
+        self.assertContains(res_prog, 'In Progress')
+        self.assertContains(res_prog, 'Mark Completed')
+        self.assertContains(res_prog, 'Cancel Project')
+
+        # Completed project
+        self.project.status = Project.Status.COMPLETED
+        self.project.save()
+        res_done = self.client.get(reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
+        self.assertContains(res_done, 'Completed')
+        self.assertNotContains(res_done, 'Start Project')
+        self.assertNotContains(res_done, 'Mark Completed')
+        self.assertNotContains(res_done, 'Cancel Project')
+

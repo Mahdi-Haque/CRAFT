@@ -19,6 +19,10 @@
                 {% endif %}
                 {% if project.status == 'open' %}
                     <span class="badge bg-success">Open for Applications</span>
+                {% elif project.status == 'in_progress' %}
+                    <span class="badge bg-info text-dark">In Progress</span>
+                {% elif project.status == 'completed' %}
+                    <span class="badge bg-primary">Completed</span>
                 {% else %}
                     <span class="badge bg-secondary">Closed</span>
                 {% endif %}
@@ -40,10 +44,37 @@
             {% if is_owner %}
                 <div class="p-3 bg-light rounded-3 border mt-4">
                     <h6 class="fw-bold mb-2">Project Management Controls</h6>
-                    <div class="d-flex flex-wrap gap-2">
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
                         <a href="{% url 'applications:applicants_list' project.pk %}" class="btn btn-primary btn-sm">
                             👥 View Applicants ({{ project.applicant_count }})
                         </a>
+                        {% if project.status == 'open' %}
+                            <form method="post" action="{% url 'projects:project_start' project.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    ▶ Start Project
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'projects:project_cancel' project.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-warning btn-sm" onclick="return confirm('Are you sure you want to close this project?');">
+                                    ✕ Close Project
+                                </button>
+                            </form>
+                        {% elif project.status == 'in_progress' %}
+                            <form method="post" action="{% url 'projects:project_complete' project.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    ✓ Mark Completed
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'projects:project_cancel' project.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-warning btn-sm" onclick="return confirm('Are you sure you want to cancel this project?');">
+                                    ✕ Cancel Project
+                                </button>
+                            </form>
+                        {% endif %}
                         <a href="{% url 'projects:project_update' project.pk %}" class="btn btn-outline-secondary btn-sm">
                             ✏️ Edit Project
                         </a>
@@ -113,6 +144,14 @@
                     <a href="{% url 'applications:project_apply' project.pk %}" class="btn btn-primary w-100 py-2">
                         Apply for this Project &rarr;
                     </a>
+                {% elif project.status == 'in_progress' %}
+                    <button class="btn btn-secondary w-100 py-2" disabled>
+                        Project In Progress
+                    </button>
+                {% elif project.status == 'completed' %}
+                    <button class="btn btn-secondary w-100 py-2" disabled>
+                        Project Completed
+                    </button>
                 {% else %}
                     <button class="btn btn-secondary w-100 py-2" disabled>
                         Project is Closed
@@ -120,8 +159,12 @@
                 {% endif %}
             {% elif not user.is_authenticated %}
                 <div class="text-center p-3 bg-light rounded-3">
-                    <p class="small text-muted mb-2">Want to apply for this campus opportunity?</p>
-                    <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary btn-sm w-100">Sign In to Apply</a>
+                    {% if project.status == 'open' %}
+                        <p class="small text-muted mb-2">Want to apply for this campus opportunity?</p>
+                        <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary btn-sm w-100">Sign In to Apply</a>
+                    {% else %}
+                        <p class="small text-muted mb-0">This project is {{ project.get_status_display|lower }} and no longer accepting applications.</p>
+                    {% endif %}
                 </div>
             {% endif %}
         </div>

@@ -80,10 +80,23 @@ def update_application_status(request, pk, new_status):
         return redirect('applications:applicants_list', pk=application.project_id)
     if new_status not in (Application.Status.ACCEPTED, Application.Status.REJECTED):
         raise PermissionDenied("Invalid status transition.")
-    application.status = new_status
-    application.save()
-    messages.success(request, f"Application marked as {new_status}.")
-    return redirect('applications:applicants_list', pk=application.project_id)
+    if new_status == Application.Status.ACCEPTED:
+        if application.project.status in (Project.Status.COMPLETED, Project.Status.CLOSED):
+            messages.error(request, f"Cannot accept applications for a {application.project.get_status_display().lower()} project.")
+            return redirect('applications:applicants_list', pk=application.project_id)
+        application.status = Application.Status.ACCEPTED
+        application.save()
+        if application.project.status == Project.Status.OPEN:
+            application.project.status = Project.Status.IN_PROGRESS
+            application.project.save()
+        messages.success(request, "Application accepted. Project is now in progress.")
+        return redirect('applications:applicants_list', pk=application.project_id)
+    else:
+        application.status = Application.Status.REJECTED
+        application.save()
+        messages.success(request, "Application marked as rejected.")
+        return redirect('applications:applicants_list', pk=application.project_id)
+
 
 
 @login_required

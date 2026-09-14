@@ -176,6 +176,57 @@ def client_dashboard(request):
     return render(request, 'projects/client_dashboard.html', {
         'projects': projects,
         'open_count': projects.filter(status='open').count(),
+        'in_progress_count': projects.filter(status='in_progress').count(),
+        'completed_count': projects.filter(status='completed').count(),
         'closed_count': projects.filter(status='closed').count(),
         'total_applicants': total_applicants,
     })
+
+
+@login_required
+def project_start(request, pk):
+    if request.method != 'POST':
+        raise PermissionDenied("Invalid request method.")
+    project = get_object_or_404(Project, pk=pk)
+    if project.client_id != request.user.id and not request.user.is_admin_role:
+        raise PermissionDenied("You can only manage lifecycle for your own projects.")
+    if project.status != Project.Status.OPEN:
+        messages.error(request, f"Cannot start project in '{project.get_status_display()}' state. Only open projects can be started.")
+        return redirect('projects:project_detail', pk=project.pk)
+    project.status = Project.Status.IN_PROGRESS
+    project.save()
+    messages.success(request, "Project has been moved to In Progress.")
+    return redirect('projects:project_detail', pk=project.pk)
+
+
+@login_required
+def project_complete(request, pk):
+    if request.method != 'POST':
+        raise PermissionDenied("Invalid request method.")
+    project = get_object_or_404(Project, pk=pk)
+    if project.client_id != request.user.id and not request.user.is_admin_role:
+        raise PermissionDenied("You can only manage lifecycle for your own projects.")
+    if project.status != Project.Status.IN_PROGRESS:
+        messages.error(request, f"Cannot complete project in '{project.get_status_display()}' state. Only in-progress projects can be completed.")
+        return redirect('projects:project_detail', pk=project.pk)
+    project.status = Project.Status.COMPLETED
+    project.save()
+    messages.success(request, "Project has been marked as Completed.")
+    return redirect('projects:project_detail', pk=project.pk)
+
+
+@login_required
+def project_cancel(request, pk):
+    if request.method != 'POST':
+        raise PermissionDenied("Invalid request method.")
+    project = get_object_or_404(Project, pk=pk)
+    if project.client_id != request.user.id and not request.user.is_admin_role:
+        raise PermissionDenied("You can only manage lifecycle for your own projects.")
+    if project.status in (Project.Status.COMPLETED, Project.Status.CLOSED):
+        messages.error(request, f"Project is already {project.get_status_display().lower()} and cannot be closed.")
+        return redirect('projects:project_detail', pk=project.pk)
+    project.status = Project.Status.CLOSED
+    project.save()
+    messages.success(request, "Project has been closed.")
+    return redirect('projects:project_detail', pk=project.pk)
+
