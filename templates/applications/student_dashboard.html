@@ -202,6 +202,11 @@
                                     <a href="{% url 'projects:project_detail' app.project.pk %}" class="btn btn-sm btn-outline-secondary">
                                         View
                                     </a>
+                                    {% if app.status == 'accepted' %}
+                                        <a href="{% url 'projects:project_workspace' app.project.pk %}" class="btn btn-sm btn-success">
+                                            🚀 Workspace
+                                        </a>
+                                    {% endif %}
                                     {% if app.status == 'pending' %}
                                         <form method="post" action="{% url 'applications:application_withdraw' app.pk %}" class="d-inline" data-confirm="Are you sure you want to withdraw your application? This action cannot be undone.">
                                             {% csrf_token %}

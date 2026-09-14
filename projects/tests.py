@@ -2,8 +2,9 @@ from datetime import date, timedelta
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
-from projects.models import Project
+from projects.models import Project, ProjectTeam, ProjectMembership
 from projects.forms import ProjectForm
+from applications.models import Application
 
 User = get_user_model()
 
@@ -889,4 +890,182 @@ class ProjectLifecycleTests(TestCase):
         self.assertNotContains(res_done, 'Start Project')
         self.assertNotContains(res_done, 'Mark Completed')
         self.assertNotContains(res_done, 'Cancel Project')
+
+
+class ProjectWorkspaceTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.owner = User.objects.create_user(
+            username='labclient',
+            email='labclient@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.CLIENT,
+            company_name='RUET VLSI Research'
+        )
+        self.other_client = User.objects.create_user(
+            username='otherclient',
+            email='otherclient@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.CLIENT,
+            company_name='Autonomous Labs'
+        )
+        self.accepted_student = User.objects.create_user(
+            username='acceptedstudent',
+            email='accepted@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT,
+            skills='Verilog, FPGA, MATLAB'
+        )
+        self.second_accepted_student = User.objects.create_user(
+            username='studenttwo',
+            email='studenttwo@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT,
+            skills='Python, PyTorch'
+        )
+        self.pending_student = User.objects.create_user(
+            username='pendingstudent',
+            email='pending@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT
+        )
+        self.rejected_student = User.objects.create_user(
+            username='rejectedstudent',
+            email='rejected@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT
+        )
+        self.unrelated_student = User.objects.create_user(
+            username='unrelatedstudent',
+            email='unrelated@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT
+        )
+        self.project = Project.objects.create(
+            client=self.owner,
+            title='RISC-V Core Implementation',
+            description='Design a 5-stage pipelined RV32I processor core in Verilog.',
+            category='Hardware',
+            budget=500.00,
+            status=Project.Status.IN_PROGRESS
+        )
+        self.team = self.project.get_team()
+        self.team.add_member(self.accepted_student)
+
+        # Applications
+        Application.objects.create(
+            project=self.project,
+            student=self.accepted_student,
+            cover_letter='Strong Verilog candidate',
+            status=Application.Status.ACCEPTED
+        )
+        Application.objects.create(
+            project=self.project,
+            student=self.pending_student,
+            cover_letter='Pending candidate',
+            status=Application.Status.PENDING
+        )
+        Application.objects.create(
+            project=self.project,
+            student=self.rejected_student,
+            cover_letter='Declined candidate',
+            status=Application.Status.REJECTED
+        )
+
+    def test_project_owner_can_access_workspace(self):
+        self.client.login(username='labclient', password='Password123!')
+        res = self.client.get(reverse('projects:project_workspace', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Team Workspace')
+        self.assertContains(res, 'RISC-V Core Implementation')
+        self.assertContains(res, 'labclient')
+        self.assertContains(res, 'acceptedstudent')
+
+    def test_accepted_student_can_access_workspace(self):
+        self.client.login(username='acceptedstudent', password='Password123!')
+        res = self.client.get(reverse('projects:project_workspace', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Team Workspace')
+        self.assertContains(res, 'acceptedstudent')
+        self.assertContains(res, 'Verilog')
+
+    def test_unauthenticated_user_cannot_access_workspace(self):
+        res = self.client.get(reverse('projects:project_workspace', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 302)
+        self.assertIn('/login/', res.url)
+
+    def test_unrelated_authenticated_user_cannot_access_workspace(self):
+        self.client.login(username='unrelatedstudent', password='Password123!')
+        res = self.client.get(reverse('projects:project_workspace', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 403)
+
+    def test_pending_applicant_cannot_access_workspace(self):
+        self.client.login(username='pendingstudent', password='Password123!')
+        res = self.client.get(reverse('projects:project_workspace', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 403)
+
+    def test_rejected_applicant_cannot_access_workspace(self):
+        self.client.login(username='rejectedstudent', password='Password123!')
+        res = self.client.get(reverse('projects:project_workspace', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 403)
+
+    def test_unrelated_client_cannot_access_workspace(self):
+        self.client.login(username='otherclient', password='Password123!')
+        res = self.client.get(reverse('projects:project_workspace', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 403)
+
+    def test_accepted_student_cannot_perform_owner_only_lifecycle_actions(self):
+        self.client.login(username='acceptedstudent', password='Password123!')
+        res_complete = self.client.post(reverse('projects:project_complete', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res_complete.status_code, 403)
+
+        res_cancel = self.client.post(reverse('projects:project_cancel', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res_cancel.status_code, 403)
+
+    def test_multiple_accepted_students_can_belong_to_same_project_and_display(self):
+        self.team.add_member(self.second_accepted_student)
+        self.client.login(username='labclient', password='Password123!')
+        res = self.client.get(reverse('projects:project_workspace', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'acceptedstudent')
+        self.assertContains(res, 'studenttwo')
+        self.assertEqual(self.team.members.count(), 2)
+
+    def test_pending_and_rejected_applicants_not_displayed_as_active_team_members(self):
+        self.client.login(username='labclient', password='Password123!')
+        res = self.client.get(reverse('projects:project_workspace', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 200)
+        # Pending and rejected applicants are not in team_members
+        self.assertNotIn(self.pending_student, res.context['team_members'])
+        self.assertNotIn(self.rejected_student, res.context['team_members'])
+        self.assertIn(self.accepted_student, res.context['team_members'])
+
+    def test_workspace_accessible_in_in_progress_and_completed_states(self):
+        self.client.login(username='acceptedstudent', password='Password123!')
+        # IN_PROGRESS
+        res_in_prog = self.client.get(reverse('projects:project_workspace', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res_in_prog.status_code, 200)
+
+        # COMPLETED
+        self.project.status = Project.Status.COMPLETED
+        self.project.save()
+        res_comp = self.client.get(reverse('projects:project_workspace', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res_comp.status_code, 200)
+
+    def test_project_detail_displays_workspace_link_for_owner_and_accepted_student(self):
+        # Owner sees link
+        self.client.login(username='labclient', password='Password123!')
+        res_owner = self.client.get(reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
+        self.assertContains(res_owner, 'Team Workspace')
+
+        # Accepted student sees link
+        self.client.login(username='acceptedstudent', password='Password123!')
+        res_accepted = self.client.get(reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
+        self.assertContains(res_accepted, 'Enter Team Workspace')
+
+        # Unrelated student does NOT see link
+        self.client.login(username='unrelatedstudent', password='Password123!')
+        res_unrelated = self.client.get(reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
+        self.assertNotContains(res_unrelated, 'Enter Team Workspace')
+
 

@@ -1,7 +1,7 @@
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
-from projects.models import Project
+from projects.models import Project, ProjectTeam, ProjectMembership
 from applications.models import Application
 
 User = get_user_model()
@@ -256,5 +256,40 @@ class ApplicationsTests(TestCase):
         self.assertEqual(app.status, Application.Status.PENDING)
         self.project.refresh_from_db()
         self.assertEqual(self.project.status, Project.Status.COMPLETED)
+
+    def test_accepting_application_creates_team_membership(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            cover_letter='Proposal for team work'
+        )
+        self.client.login(username='clientuser', password='Password123!')
+        res = self.client.post(reverse('applications:application_accept', kwargs={'pk': app.pk}))
+        self.assertEqual(res.status_code, 302)
+        
+        # Verify student is now a team member
+        team = self.project.get_team()
+        self.assertTrue(team.members.filter(id=self.student.id).exists())
+        self.assertTrue(ProjectMembership.objects.filter(team=team, user=self.student).exists())
+
+    def test_duplicate_team_membership_prevented(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            cover_letter='Proposal'
+        )
+        self.client.login(username='clientuser', password='Password123!')
+        # Accept first time
+        res1 = self.client.post(reverse('applications:application_accept', kwargs={'pk': app.pk}))
+        self.assertEqual(res1.status_code, 302)
+
+        # Attempt to accept again (already decided)
+        res2 = self.client.post(reverse('applications:application_accept', kwargs={'pk': app.pk}))
+        self.assertEqual(res2.status_code, 302)
+
+        team = self.project.get_team()
+        self.assertEqual(ProjectMembership.objects.filter(team=team, user=self.student).count(), 1)
+        self.assertEqual(team.members.filter(id=self.student.id).count(), 1)
+
 
 

@@ -15,4 +15,5 @@ urlpatterns = [
     path('<int:pk>/complete/', views.project_complete, name='project_complete'),
     path('<int:pk>/cancel/', views.project_cancel, name='project_cancel'),
     path('<int:pk>/close/', views.project_cancel, name='project_close'),
+    path('<int:pk>/workspace/', views.project_workspace, name='project_workspace'),
 ]
