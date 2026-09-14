@@ -82,12 +82,14 @@
                             <td class="text-end">
                                 {% if app.status == 'pending' %}
                                     <div class="d-inline-flex gap-1">
-                                        <form method="post" action="{% url 'applications:application_accept' app.pk %}" class="d-inline">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-success" title="Accept student into project">
-                                                ✓ Accept
-                                            </button>
-                                        </form>
+                                        {% if project.status != 'completed' and project.status != 'closed' %}
+                                            <form method="post" action="{% url 'applications:application_accept' app.pk %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-sm btn-success" title="Accept student into project">
+                                                    ✓ Accept
+                                                </button>
+                                            </form>
+                                        {% endif %}
                                         <form method="post" action="{% url 'applications:application_reject' app.pk %}" class="d-inline">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-sm btn-outline-danger" title="Decline application">

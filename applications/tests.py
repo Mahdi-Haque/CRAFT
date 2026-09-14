@@ -193,3 +193,68 @@ class ApplicationsTests(TestCase):
         res = self.client.get(reverse('applications:application_accept', kwargs={'pk': app.pk}))
         self.assertEqual(res.status_code, 403)
 
+    def test_in_progress_project_cannot_receive_new_applications(self):
+        self.project.status = Project.Status.IN_PROGRESS
+        self.project.save()
+
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.post(reverse('applications:project_apply', kwargs={'pk': self.project.pk}), {
+            'cover_letter': 'Trying to apply late'
+        })
+        self.assertEqual(res.status_code, 302)
+        self.assertFalse(Application.objects.filter(project=self.project, student=self.student).exists())
+
+    def test_completed_project_cannot_receive_new_applications(self):
+        self.project.status = Project.Status.COMPLETED
+        self.project.save()
+
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.post(reverse('applications:project_apply', kwargs={'pk': self.project.pk}), {
+            'cover_letter': 'Trying to apply to completed project'
+        })
+        self.assertEqual(res.status_code, 302)
+        self.assertFalse(Application.objects.filter(project=self.project, student=self.student).exists())
+
+    def test_cancelled_closed_project_cannot_receive_new_applications(self):
+        self.project.status = Project.Status.CLOSED
+        self.project.save()
+
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.post(reverse('applications:project_apply', kwargs={'pk': self.project.pk}), {
+            'cover_letter': 'Trying to apply to closed project'
+        })
+        self.assertEqual(res.status_code, 302)
+        self.assertFalse(Application.objects.filter(project=self.project, student=self.student).exists())
+
+    def test_accepting_application_transitions_open_project_to_in_progress(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            cover_letter='Proposal'
+        )
+        self.client.login(username='clientuser', password='Password123!')
+        res = self.client.post(reverse('applications:application_accept', kwargs={'pk': app.pk}))
+        self.assertEqual(res.status_code, 302)
+        app.refresh_from_db()
+        self.assertEqual(app.status, Application.Status.ACCEPTED)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.IN_PROGRESS)
+
+    def test_cannot_accept_application_on_completed_or_closed_project(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            cover_letter='Proposal'
+        )
+        self.project.status = Project.Status.COMPLETED
+        self.project.save()
+
+        self.client.login(username='clientuser', password='Password123!')
+        res = self.client.post(reverse('applications:application_accept', kwargs={'pk': app.pk}))
+        self.assertEqual(res.status_code, 302)
+        app.refresh_from_db()
+        self.assertEqual(app.status, Application.Status.PENDING)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.COMPLETED)
+
+

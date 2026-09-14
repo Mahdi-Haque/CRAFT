@@ -92,6 +92,10 @@
                             <td>
                                 {% if project.status == 'open' %}
                                     <span class="badge bg-success">Open</span>
+                                {% elif project.status == 'in_progress' %}
+                                    <span class="badge bg-info text-dark">In Progress</span>
+                                {% elif project.status == 'completed' %}
+                                    <span class="badge bg-primary">Completed</span>
                                 {% else %}
                                     <span class="badge bg-secondary">Closed</span>
                                 {% endif %}

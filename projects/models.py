@@ -12,7 +12,12 @@ class Project(models.Model):
     """
     class Status(models.TextChoices):
         OPEN = 'open', 'Open'
+        IN_PROGRESS = 'in_progress', 'In Progress'
+        COMPLETED = 'completed', 'Completed'
         CLOSED = 'closed', 'Closed'
+
+    # Developer alias for CANCELLED
+    Status.CANCELLED = Status.CLOSED
 
     client = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
@@ -29,7 +34,7 @@ class Project(models.Model):
     )
     budget = models.DecimalField(max_digits=10, decimal_places=2, help_text="Budget in USD")
     deadline = models.DateField(null=True, blank=True)
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -53,3 +58,20 @@ class Project(models.Model):
         if not self.skills_required:
             return []
         return [s.strip() for s in self.skills_required.split(',') if s.strip()]
+
+    @property
+    def can_start(self):
+        return self.status == self.Status.OPEN
+
+    @property
+    def can_complete(self):
+        return self.status == self.Status.IN_PROGRESS
+
+    @property
+    def can_cancel(self):
+        return self.status in (self.Status.OPEN, self.Status.IN_PROGRESS)
+
+    @property
+    def is_open(self):
+        return self.status == self.Status.OPEN
+
