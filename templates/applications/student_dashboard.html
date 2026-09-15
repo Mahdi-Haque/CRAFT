@@ -24,6 +24,7 @@
 <!-- Stat Counters -->
 <div class="row g-3 mb-4">
     <div class="col-12 col-sm-4">
+    <div class="col-6 col-lg-3">
         <div class="cw-stat-card">
             <div>
                 <div class="cw-stat-value text-dark">{{ applications.count }}</div>
@@ -35,10 +36,12 @@
         </div>
     </div>
     <div class="col-12 col-sm-4">
+    <div class="col-6 col-lg-3">
         <div class="cw-stat-card">
             <div>
                 <div class="cw-stat-value text-warning">{{ pending_count }}</div>
                 <div class="cw-stat-label">Pending Decisions</div>
+                <div class="cw-stat-label">Pending Review</div>
             </div>
             <div class="cw-stat-icon-wrapper" style="background-color: var(--cw-warning-bg); color: var(--cw-warning);">
                 ⏳
@@ -46,6 +49,7 @@
         </div>
     </div>
     <div class="col-12 col-sm-4">
+    <div class="col-6 col-lg-3">
         <div class="cw-stat-card">
             <div>
                 <div class="cw-stat-value text-success">{{ accepted_count }}</div>
@@ -53,6 +57,17 @@
             </div>
             <div class="cw-stat-icon-wrapper" style="background-color: var(--cw-success-bg); color: var(--cw-success);">
                 🎉
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="cw-stat-card">
+            <div>
+                <div class="cw-stat-value text-secondary">{{ rejected_count }}</div>
+                <div class="cw-stat-label">Declined</div>
+            </div>
+            <div class="cw-stat-icon-wrapper" style="background-color: var(--cw-bg-subtle); color: var(--cw-text-muted);">
+                ❌
             </div>
         </div>
     </div>
@@ -144,6 +159,74 @@
     {% endif %}
 </div>
 
+{% if accepted_applications %}
+<!-- Active Engagements & Team Workspaces -->
+<div class="card shadow-sm mb-5 border-success-subtle">
+    <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+            <span class="fs-5">🚀</span>
+            <h5 class="mb-0 fw-bold">Active Engagements &amp; Team Workspaces</h5>
+            <span class="badge bg-success">{{ accepted_applications|length }} Active</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table cw-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Project</th>
+                    <th>Client / Organizer</th>
+                    <th>Project Status</th>
+                    <th>Budget</th>
+                    <th>Deadline</th>
+                    <th class="text-end">Workspace</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in accepted_applications %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'projects:project_detail' app.project.pk %}" class="fw-bold text-dark text-decoration-none">
+                                {{ app.project.title }}
+                            </a>
+                            {% if app.project.category %}
+                                <div class="text-muted small">{{ app.project.category }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="text-secondary small fw-semibold">
+                                {{ app.project.client.company_name|default:app.project.client.username }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if app.project.status == 'open' %}
+                                <span class="badge bg-success">Open</span>
+                            {% elif app.project.status == 'in_progress' %}
+                                <span class="badge bg-info text-dark">In Progress</span>
+                            {% elif app.project.status == 'completed' %}
+                                <span class="badge bg-primary">Completed</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Closed</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="fw-semibold text-primary">${{ app.project.budget }}</span>
+                        </td>
+                        <td class="text-muted small">
+                            {% if app.project.deadline %}{{ app.project.deadline|date:"M d, Y" }}{% else %}Flexible{% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'projects:project_workspace' app.project.pk %}" class="btn btn-sm btn-success fw-semibold">
+                                🚀 Enter Workspace &rarr;
+                            </a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- My Applications Section -->
 <div class="card shadow-sm mb-5">
     <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
@@ -160,8 +243,10 @@
                     <tr>
                         <th>Target Project</th>
                         <th>Client / Organizer</th>
+                        <th>Project Status</th>
                         <th>Budget</th>
                         <th>Status</th>
+                        <th>Application Status</th>
                         <th>Applied On</th>
                         <th class="text-end">Actions</th>
                     </tr>
@@ -181,6 +266,17 @@
                                 <span class="text-secondary small fw-semibold">
                                     {{ app.project.client.company_name|default:app.project.client.username }}
                                 </span>
+                            </td>
+                            <td>
+                                {% if app.project.status == 'open' %}
+                                    <span class="badge bg-success">Open</span>
+                                {% elif app.project.status == 'in_progress' %}
+                                    <span class="badge bg-info text-dark">In Progress</span>
+                                {% elif app.project.status == 'completed' %}
+                                    <span class="badge bg-primary">Completed</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Closed</span>
+                                {% endif %}
                             </td>
                             <td>
                                 <span class="fw-semibold text-primary">${{ app.project.budget }}</span>

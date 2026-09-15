@@ -21,10 +21,12 @@
 <!-- Stat Widgets Grid -->
 <div class="row g-3 mb-4">
     <div class="col-12 col-sm-4">
+    <div class="col-6 col-md-4 col-lg">
         <div class="cw-stat-card">
             <div>
                 <div class="cw-stat-value text-success">{{ open_count }}</div>
                 <div class="cw-stat-label">Active Open Projects</div>
+                <div class="cw-stat-label">Open Projects</div>
             </div>
             <div class="cw-stat-icon-wrapper" style="background-color: var(--cw-success-bg); color: var(--cw-success);">
                 📂
@@ -32,10 +34,34 @@
         </div>
     </div>
     <div class="col-12 col-sm-4">
+    <div class="col-6 col-md-4 col-lg">
+        <div class="cw-stat-card">
+            <div>
+                <div class="cw-stat-value text-info">{{ in_progress_count }}</div>
+                <div class="cw-stat-label">In Progress</div>
+            </div>
+            <div class="cw-stat-icon-wrapper" style="background-color: var(--cw-primary-50); color: var(--cw-primary-700);">
+                ⚡
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg">
+        <div class="cw-stat-card">
+            <div>
+                <div class="cw-stat-value text-primary">{{ completed_count }}</div>
+                <div class="cw-stat-label">Completed</div>
+            </div>
+            <div class="cw-stat-icon-wrapper" style="background-color: var(--cw-primary-50); color: var(--cw-primary-700);">
+                🏁
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-6 col-lg">
         <div class="cw-stat-card">
             <div>
                 <div class="cw-stat-value text-secondary">{{ closed_count }}</div>
                 <div class="cw-stat-label">Closed Projects</div>
+                <div class="cw-stat-label">Closed</div>
             </div>
             <div class="cw-stat-icon-wrapper" style="background-color: var(--cw-bg-subtle); color: var(--cw-text-muted);">
                 📁
@@ -43,12 +69,16 @@
         </div>
     </div>
     <div class="col-12 col-sm-4">
+    <div class="col-12 col-md-6 col-lg">
         <div class="cw-stat-card">
             <div>
                 <div class="cw-stat-value text-primary">{{ total_applicants }}</div>
                 <div class="cw-stat-label">Total Student Applicants</div>
+                <div class="cw-stat-value text-dark">{{ total_applicants }}</div>
+                <div class="cw-stat-label">Total Applicants</div>
             </div>
             <div class="cw-stat-icon-wrapper" style="background-color: var(--cw-primary-50); color: var(--cw-primary-700);">
+            <div class="cw-stat-icon-wrapper" style="background-color: var(--cw-bg-subtle); color: var(--cw-text-body);">
                 👥
             </div>
         </div>
@@ -102,6 +132,7 @@
                             </td>
                             <td>
                                 <a href="{% url 'applications:applicants_list' project.pk %}" class="btn btn-sm btn-outline-primary py-1 px-2">
+                                <a href="{% url 'applications:applicants_list' project.pk %}" class="btn btn-sm {% if project.app_count > 0 %}btn-outline-primary fw-semibold{% else %}btn-outline-secondary text-muted{% endif %} py-1 px-2">
                                     👥 {{ project.app_count }} applicant{{ project.app_count|pluralize }}
                                 </a>
                             </td>
@@ -119,6 +150,23 @@
                                     <a href="{% url 'projects:project_delete' project.pk %}" class="btn btn-outline-danger" title="Delete project">
                                         Delete
                                     </a>
+                                <div class="d-inline-flex align-items-center gap-1">
+                                    {% if project.status == 'in_progress' or project.status == 'completed' or project.has_team %}
+                                        <a href="{% url 'projects:project_workspace' project.pk %}" class="btn btn-sm btn-success" title="Team Workspace">
+                                            🚀 Workspace
+                                        </a>
+                                    {% endif %}
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-outline-secondary" title="View details">
+                                            View
+                                        </a>
+                                        <a href="{% url 'projects:project_update' project.pk %}" class="btn btn-outline-secondary" title="Edit project">
+                                            Edit
+                                        </a>
+                                        <a href="{% url 'projects:project_delete' project.pk %}" class="btn btn-outline-danger" title="Delete project">
+                                            Delete
+                                        </a>
+                                    </div>
                                 </div>
                             </td>
                         </tr>

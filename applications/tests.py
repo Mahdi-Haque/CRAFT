@@ -292,4 +292,165 @@ class ApplicationsTests(TestCase):
         self.assertEqual(team.members.filter(id=self.student.id).count(), 1)
 
 
+class StudentDashboardIntegrationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.client_user = User.objects.create_user(
+            username='clientuser',
+            email='client@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.CLIENT,
+            company_name='Embedded Systems Lab'
+        )
+        self.student = User.objects.create_user(
+            username='studentuser',
+            email='student@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT,
+            skills='C, RTOS, PCB Design'
+        )
+        self.other_student = User.objects.create_user(
+            username='otherstudent',
+            email='otherstudent@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT,
+            skills='Python, Django'
+        )
+        self.project1 = Project.objects.create(
+            client=self.client_user,
+            title='Drone Flight Controller',
+            description='Firmware for quadcopter.',
+            category='Robotics',
+            budget=200.00,
+            status=Project.Status.IN_PROGRESS
+        )
+        self.project2 = Project.objects.create(
+            client=self.client_user,
+            title='Autonomous Ground Vehicle',
+            description='Path planning algorithm.',
+            category='Robotics',
+            budget=350.00,
+            status=Project.Status.OPEN
+        )
+        self.project3 = Project.objects.create(
+            client=self.client_user,
+            title='Smart Campus Sensor Node',
+            description='IoT telemetry.',
+            category='IoT',
+            budget=150.00,
+            status=Project.Status.COMPLETED
+        )
+
+    def test_student_dashboard_authenticated_student_access(self):
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('applications:student_dashboard'))
+        self.assertEqual(res.status_code, 200)
+        self.assertTemplateUsed(res, 'applications/student_dashboard.html')
+
+    def test_student_dashboard_non_student_forbidden(self):
+        self.client.login(username='clientuser', password='Password123!')
+        res = self.client.get(reverse('applications:student_dashboard'))
+        self.assertEqual(res.status_code, 403)
+
+    def test_student_dashboard_unauthenticated_redirect(self):
+        res = self.client.get(reverse('applications:student_dashboard'))
+        self.assertEqual(res.status_code, 302)
+        self.assertIn(reverse('accounts:login'), res.url)
+
+    def test_student_dashboard_metrics_breakdown(self):
+        Application.objects.create(
+            project=self.project1,
+            student=self.student,
+            status=Application.Status.ACCEPTED,
+            cover_letter='Accepted application'
+        )
+        Application.objects.create(
+            project=self.project2,
+            student=self.student,
+            status=Application.Status.PENDING,
+            cover_letter='Pending application'
+        )
+        Application.objects.create(
+            project=self.project3,
+            student=self.student,
+            status=Application.Status.REJECTED,
+            cover_letter='Rejected application'
+        )
+
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('applications:student_dashboard'))
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['pending_count'], 1)
+        self.assertEqual(res.context['accepted_count'], 1)
+        self.assertEqual(res.context['rejected_count'], 1)
+        self.assertEqual(res.context['applications'].count(), 3)
+
+    def test_student_dashboard_shows_only_own_applications(self):
+        app_mine = Application.objects.create(
+            project=self.project1,
+            student=self.student,
+            status=Application.Status.PENDING,
+            cover_letter='My proposal'
+        )
+        app_other = Application.objects.create(
+            project=self.project2,
+            student=self.other_student,
+            status=Application.Status.PENDING,
+            cover_letter='Other secret proposal'
+        )
+
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('applications:student_dashboard'))
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(app_mine, res.context['applications'])
+        self.assertNotIn(app_other, res.context['applications'])
+        self.assertContains(res, 'Drone Flight Controller')
+        self.assertNotContains(res, 'Other secret proposal')
+
+    def test_student_dashboard_shows_project_lifecycle_status(self):
+        Application.objects.create(
+            project=self.project1,
+            student=self.student,
+            status=Application.Status.ACCEPTED,
+            cover_letter='Accepted proposal'
+        )
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('applications:student_dashboard'))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'In Progress')
+
+    def test_student_dashboard_workspace_button_strictly_for_accepted(self):
+        Application.objects.create(
+            project=self.project1,
+            student=self.student,
+            status=Application.Status.ACCEPTED,
+            cover_letter='Accepted proposal'
+        )
+        Application.objects.create(
+            project=self.project2,
+            student=self.student,
+            status=Application.Status.PENDING,
+            cover_letter='Pending proposal'
+        )
+        Application.objects.create(
+            project=self.project3,
+            student=self.student,
+            status=Application.Status.REJECTED,
+            cover_letter='Rejected proposal'
+        )
+
+        workspace_url_accepted = reverse('projects:project_workspace', kwargs={'pk': self.project1.pk})
+        workspace_url_pending = reverse('projects:project_workspace', kwargs={'pk': self.project2.pk})
+        workspace_url_rejected = reverse('projects:project_workspace', kwargs={'pk': self.project3.pk})
+
+        self.client.login(username='studentuser', password='Password123!')
+        res = self.client.get(reverse('applications:student_dashboard'))
+        self.assertEqual(res.status_code, 200)
+
+        self.assertContains(res, workspace_url_accepted)
+        self.assertNotContains(res, workspace_url_pending)
+        self.assertNotContains(res, workspace_url_rejected)
+
+
+
 

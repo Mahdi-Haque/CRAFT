@@ -88,6 +88,10 @@ class Project(models.Model):
             return self.team.members.filter(id=user.id).exists()
         return False
 
+    @property
+    def has_team(self):
+        return hasattr(self, 'team') and self.team.members.exists()
+
 
 class ProjectTeam(models.Model):
     project = models.OneToOneField(
