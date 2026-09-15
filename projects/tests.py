@@ -1069,3 +1069,163 @@ class ProjectWorkspaceTests(TestCase):
         self.assertNotContains(res_unrelated, 'Enter Team Workspace')
 
 
+class ClientDashboardIntegrationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.client_user = User.objects.create_user(
+            username='mainclient',
+            email='mainclient@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.CLIENT,
+            company_name='Robotics & AI Society'
+        )
+        self.other_client = User.objects.create_user(
+            username='otherclient',
+            email='otherclient@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.CLIENT,
+            company_name='Circuit Lab'
+        )
+        self.student1 = User.objects.create_user(
+            username='studentone',
+            email='s1@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT
+        )
+        self.student2 = User.objects.create_user(
+            username='studenttwo',
+            email='s2@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT
+        )
+
+        self.open_proj = Project.objects.create(
+            client=self.client_user,
+            title='Open Vision Project',
+            description='OpenCV object tracker.',
+            category='Robotics',
+            budget=300.00,
+            status=Project.Status.OPEN
+        )
+        self.in_progress_proj = Project.objects.create(
+            client=self.client_user,
+            title='In Progress Rover Control',
+            description='Motor drivers and telemetry.',
+            category='Robotics',
+            budget=450.00,
+            status=Project.Status.IN_PROGRESS
+        )
+        self.completed_proj = Project.objects.create(
+            client=self.client_user,
+            title='Completed Web Dashboard',
+            description='Django monitoring portal.',
+            category='Web',
+            budget=200.00,
+            status=Project.Status.COMPLETED
+        )
+        self.closed_proj = Project.objects.create(
+            client=self.client_user,
+            title='Closed Design Challenge',
+            description='Old UI mockups.',
+            category='UI/UX',
+            budget=100.00,
+            status=Project.Status.CLOSED
+        )
+
+        self.other_proj = Project.objects.create(
+            client=self.other_client,
+            title='Confidential Hardware Design',
+            description='Secret schematic.',
+            category='Embedded',
+            budget=500.00,
+            status=Project.Status.OPEN
+        )
+
+    def test_client_dashboard_authenticated_client_access(self):
+        self.client.login(username='mainclient', password='Password123!')
+        res = self.client.get(reverse('projects:client_dashboard'))
+        self.assertEqual(res.status_code, 200)
+        self.assertTemplateUsed(res, 'projects/client_dashboard.html')
+
+    def test_client_dashboard_non_client_forbidden(self):
+        self.client.login(username='studentone', password='Password123!')
+        res = self.client.get(reverse('projects:client_dashboard'))
+        self.assertEqual(res.status_code, 403)
+
+    def test_client_dashboard_unauthenticated_redirect(self):
+        res = self.client.get(reverse('projects:client_dashboard'))
+        self.assertEqual(res.status_code, 302)
+        self.assertIn(reverse('accounts:login'), res.url)
+
+    def test_client_dashboard_lifecycle_metrics(self):
+        Application.objects.create(
+            project=self.open_proj,
+            student=self.student1,
+            status=Application.Status.PENDING,
+            cover_letter='Applying to open project'
+        )
+        Application.objects.create(
+            project=self.in_progress_proj,
+            student=self.student2,
+            status=Application.Status.ACCEPTED,
+            cover_letter='Applying to in-progress project'
+        )
+
+        self.client.login(username='mainclient', password='Password123!')
+        res = self.client.get(reverse('projects:client_dashboard'))
+        self.assertEqual(res.status_code, 200)
+
+        self.assertEqual(res.context['open_count'], 1)
+        self.assertEqual(res.context['in_progress_count'], 1)
+        self.assertEqual(res.context['completed_count'], 1)
+        self.assertEqual(res.context['closed_count'], 1)
+        self.assertEqual(res.context['total_applicants'], 2)
+        self.assertEqual(len(res.context['projects']), 4)
+
+        self.assertContains(res, 'Open Projects')
+        self.assertContains(res, 'In Progress')
+        self.assertContains(res, 'Completed')
+        self.assertContains(res, 'Closed')
+        self.assertContains(res, 'Total Applicants')
+
+    def test_client_dashboard_shows_only_own_projects(self):
+        self.client.login(username='mainclient', password='Password123!')
+        res = self.client.get(reverse('projects:client_dashboard'))
+        self.assertEqual(res.status_code, 200)
+
+        project_ids = [p.id for p in res.context['projects']]
+        self.assertIn(self.open_proj.id, project_ids)
+        self.assertNotIn(self.other_proj.id, project_ids)
+        self.assertContains(res, 'Open Vision Project')
+        self.assertNotContains(res, 'Confidential Hardware Design')
+
+    def test_client_dashboard_applicant_review_link(self):
+        Application.objects.create(
+            project=self.open_proj,
+            student=self.student1,
+            status=Application.Status.PENDING,
+            cover_letter='Proposal'
+        )
+        self.client.login(username='mainclient', password='Password123!')
+        res = self.client.get(reverse('projects:client_dashboard'))
+        self.assertEqual(res.status_code, 200)
+
+        applicants_url = reverse('applications:applicants_list', kwargs={'pk': self.open_proj.pk})
+        self.assertContains(res, applicants_url)
+        self.assertContains(res, '1 applicant')
+
+    def test_client_dashboard_workspace_link_for_active_projects(self):
+        self.client.login(username='mainclient', password='Password123!')
+        res = self.client.get(reverse('projects:client_dashboard'))
+        self.assertEqual(res.status_code, 200)
+
+        in_prog_workspace_url = reverse('projects:project_workspace', kwargs={'pk': self.in_progress_proj.pk})
+        completed_workspace_url = reverse('projects:project_workspace', kwargs={'pk': self.completed_proj.pk})
+        open_workspace_url = reverse('projects:project_workspace', kwargs={'pk': self.open_proj.pk})
+
+        self.assertContains(res, in_prog_workspace_url)
+        self.assertContains(res, completed_workspace_url)
+        self.assertNotContains(res, open_workspace_url)
+
+
+

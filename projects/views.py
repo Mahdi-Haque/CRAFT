@@ -172,6 +172,12 @@ def client_dashboard(request):
     projects = Project.objects.filter(client=request.user).annotate(
         app_count=Count('applications')
     ).order_by('-created_at')
+    projects = (
+        Project.objects.filter(client=request.user)
+        .annotate(app_count=Count('applications'))
+        .prefetch_related('team__members')
+        .order_by('-created_at')
+    )
     total_applicants = sum(p.app_count for p in projects)
     return render(request, 'projects/client_dashboard.html', {
         'projects': projects,

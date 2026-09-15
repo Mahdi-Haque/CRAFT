@@ -127,11 +127,26 @@ def student_dashboard(request):
         raise PermissionDenied("Only students can view this dashboard.")
     applications = Application.objects.filter(student=request.user).select_related('project').order_by('-applied_at')
     open_projects = Project.objects.filter(status='open').order_by('-created_at')[:6]
+    applications = (
+        Application.objects.filter(student=request.user)
+        .select_related('project', 'project__client')
+        .order_by('-applied_at')
+    )
+    accepted_applications = [app for app in applications if app.status == Application.Status.ACCEPTED]
+    open_projects = (
+        Project.objects.filter(status=Project.Status.OPEN)
+        .select_related('client')
+        .order_by('-created_at')[:6]
+    )
     return render(request, 'applications/student_dashboard.html', {
         'applications': applications,
+        'accepted_applications': accepted_applications,
         'open_projects': open_projects,
         'pending_count': applications.filter(status='pending').count(),
         'accepted_count': applications.filter(status='accepted').count(),
+        'pending_count': applications.filter(status=Application.Status.PENDING).count(),
+        'accepted_count': len(accepted_applications),
+        'rejected_count': applications.filter(status=Application.Status.REJECTED).count(),
     })
 
 
