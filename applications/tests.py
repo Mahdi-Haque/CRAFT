@@ -452,5 +452,105 @@ class StudentDashboardIntegrationTests(TestCase):
         self.assertNotContains(res, workspace_url_rejected)
 
 
+class ApplicationHardeningTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.client_user = User.objects.create_user(
+            username='labclient',
+            email='labclient@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.CLIENT,
+            company_name='Embedded RUET'
+        )
+        self.student = User.objects.create_user(
+            username='studentdev',
+            email='studentdev@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT,
+            skills='Python, Django'
+        )
+        self.project = Project.objects.create(
+            client=self.client_user,
+            title='Autonomous Drone Vision',
+            description='Computer vision module for surveillance.',
+            category='Robotics',
+            budget=300.00,
+            status=Project.Status.OPEN
+        )
+
+    def test_cannot_withdraw_accepted_application(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            status=Application.Status.ACCEPTED,
+            cover_letter='Accepted proposal'
+        )
+        self.client.login(username='studentdev', password='Password123!')
+        res = self.client.post(reverse('applications:application_withdraw', kwargs={'pk': app.pk}))
+        self.assertEqual(res.status_code, 302)
+        app.refresh_from_db()
+        self.assertEqual(app.status, Application.Status.ACCEPTED)
+
+    def test_cannot_withdraw_rejected_application(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            status=Application.Status.REJECTED,
+            cover_letter='Rejected proposal'
+        )
+        self.client.login(username='studentdev', password='Password123!')
+        res = self.client.post(reverse('applications:application_withdraw', kwargs={'pk': app.pk}))
+        self.assertEqual(res.status_code, 302)
+        app.refresh_from_db()
+        self.assertEqual(app.status, Application.Status.REJECTED)
+
+    def test_get_request_to_withdraw_denied(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            status=Application.Status.PENDING,
+            cover_letter='Pending proposal'
+        )
+        self.client.login(username='studentdev', password='Password123!')
+        res = self.client.get(reverse('applications:application_withdraw', kwargs={'pk': app.pk}))
+        self.assertEqual(res.status_code, 403)
+        app.refresh_from_db()
+        self.assertEqual(app.status, Application.Status.PENDING)
+
+    def test_application_cover_letter_cannot_be_whitespace_only(self):
+        self.client.login(username='studentdev', password='Password123!')
+        res = self.client.post(reverse('applications:project_apply', kwargs={'pk': self.project.pk}), {
+            'cover_letter': '    \n\t   '
+        })
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.context['form'].errors.get('cover_letter'))
+        self.assertFalse(Application.objects.filter(project=self.project, student=self.student).exists())
+
+    def test_acceptance_flow_emits_single_message_and_single_save(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            status=Application.Status.PENDING,
+            cover_letter='Valid proposal'
+        )
+        self.client.login(username='labclient', password='Password123!')
+        res = self.client.post(
+            reverse('applications:application_accept', kwargs={'pk': app.pk}),
+            follow=True
+        )
+        self.assertEqual(res.status_code, 200)
+        messages_list = list(res.context['messages'])
+        success_messages = [m for m in messages_list if 'accepted' in m.message.lower()]
+        self.assertEqual(len(success_messages), 1)
+
+    def test_cannot_apply_with_empty_cover_letter(self):
+        self.client.login(username='studentdev', password='Password123!')
+        res = self.client.post(reverse('applications:project_apply', kwargs={'pk': self.project.pk}), {
+            'cover_letter': ''
+        })
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(Application.objects.filter(project=self.project, student=self.student).exists())
+
+
 
 

@@ -32,7 +32,7 @@ def client_required(user):
 
 @login_required
 def project_list(request):
-    projects = Project.objects.filter(status='open')
+    projects = Project.objects.filter(status='open').select_related('client')
 
     query = request.GET.get('q', '').strip()
     if query:
@@ -107,7 +107,7 @@ def project_detail(request, pk):
     Owned by Person B. Shows project info and handles CTA state.
     Queries user's application status via related_name contract if student.
     """
-    project = get_object_or_404(Project, pk=pk)
+    project = get_object_or_404(Project.objects.select_related('client'), pk=pk)
     is_owner = request.user.is_authenticated and project.client_id == request.user.id
     user_application = None
     if request.user.is_authenticated and request.user.is_student and not is_owner:
@@ -169,10 +169,7 @@ def project_delete(request, pk):
 def client_dashboard(request):
     if not client_required(request.user):
         raise PermissionDenied("Only clients can view this dashboard.")
-    projects = Project.objects.filter(client=request.user).annotate(
-        app_count=Count('applications')
-    ).order_by('-created_at')
-    projects = (
+    projects = list(
         Project.objects.filter(client=request.user)
         .annotate(app_count=Count('applications'))
         .prefetch_related('team__members')
@@ -181,10 +178,10 @@ def client_dashboard(request):
     total_applicants = sum(p.app_count for p in projects)
     return render(request, 'projects/client_dashboard.html', {
         'projects': projects,
-        'open_count': projects.filter(status='open').count(),
-        'in_progress_count': projects.filter(status='in_progress').count(),
-        'completed_count': projects.filter(status='completed').count(),
-        'closed_count': projects.filter(status='closed').count(),
+        'open_count': sum(1 for p in projects if p.status == Project.Status.OPEN),
+        'in_progress_count': sum(1 for p in projects if p.status == Project.Status.IN_PROGRESS),
+        'completed_count': sum(1 for p in projects if p.status == Project.Status.COMPLETED),
+        'closed_count': sum(1 for p in projects if p.status == Project.Status.CLOSED),
         'total_applicants': total_applicants,
     })
 
@@ -239,7 +236,7 @@ def project_cancel(request, pk):
 
 @login_required
 def project_workspace(request, pk):
-    project = get_object_or_404(Project, pk=pk)
+    project = get_object_or_404(Project.objects.select_related('client'), pk=pk)
 
     # Object-level authorization: owner, admin, or accepted student team member
     is_owner = (project.client_id == request.user.id) or request.user.is_admin_role
@@ -264,5 +261,3 @@ def project_workspace(request, pk):
         'team_members': team_members,
         'is_owner': is_owner,
     })
-
-

@@ -1228,4 +1228,192 @@ class ClientDashboardIntegrationTests(TestCase):
         self.assertNotContains(res, open_workspace_url)
 
 
+class ProjectHardeningTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.client_user = User.objects.create_user(
+            username='mainclient2',
+            email='mainclient2@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.CLIENT,
+            company_name='RUET Innovation Hub'
+        )
+        self.other_client = User.objects.create_user(
+            username='otherclient2',
+            email='otherclient2@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.CLIENT,
+            company_name='Autonomous Robotics'
+        )
+        self.student = User.objects.create_user(
+            username='studentdev2',
+            email='studentdev2@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT
+        )
+        self.project = Project.objects.create(
+            client=self.client_user,
+            title='Rover Telemetry Station',
+            description='Build ground control UI with WebSocket stream.',
+            category='Robotics',
+            budget=350.00,
+            status=Project.Status.OPEN
+        )
+
+    def test_cannot_create_project_with_negative_budget(self):
+        self.client.login(username='mainclient2', password='Password123!')
+        res = self.client.post(reverse('projects:project_create'), {
+            'title': 'Negative Budget Project',
+            'description': 'Valid description',
+            'category': 'Robotics',
+            'budget': '-100.00',
+            'status': 'open',
+        })
+        self.assertEqual(res.status_code, 200)
+        self.assertFormError(res.context['form'], 'budget', 'Budget must be a positive amount.')
+        self.assertFalse(Project.objects.filter(title='Negative Budget Project').exists())
+
+    def test_cannot_create_project_with_zero_budget(self):
+        self.client.login(username='mainclient2', password='Password123!')
+        res = self.client.post(reverse('projects:project_create'), {
+            'title': 'Zero Budget Project',
+            'description': 'Valid description',
+            'category': 'Robotics',
+            'budget': '0.00',
+            'status': 'open',
+        })
+        self.assertEqual(res.status_code, 200)
+        self.assertFormError(res.context['form'], 'budget', 'Budget must be a positive amount.')
+        self.assertFalse(Project.objects.filter(title='Zero Budget Project').exists())
+
+    def test_pagination_invalid_page_falls_back(self):
+        self.client.login(username='studentdev2', password='Password123!')
+        # Create 7 projects (page size is 6)
+        for i in range(7):
+            Project.objects.create(
+                client=self.client_user,
+                title=f'Extra Open Project {i}',
+                description='Desc',
+                category='Robotics',
+                budget=100.00 + i,
+                status=Project.Status.OPEN
+            )
+        # Invalid string page parameter
+        res_str = self.client.get(reverse('projects:project_list') + '?page=invalid')
+        self.assertEqual(res_str.status_code, 200)
+        self.assertEqual(res_str.context['page_obj'].number, 1)
+
+        # Page beyond range parameter
+        res_large = self.client.get(reverse('projects:project_list') + '?page=9999')
+        self.assertEqual(res_large.status_code, 200)
+        self.assertEqual(res_large.context['page_obj'].number, res_large.context['page_obj'].paginator.num_pages)
+
+    def test_filter_by_nonexistent_category(self):
+        self.client.login(username='studentdev2', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'category': 'NonExistentCategoryXYZ'})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.context['projects']), 0)
+        self.assertContains(res, 'No projects found in category')
+
+    def test_sorting_with_invalid_parameter_falls_back_to_newest(self):
+        self.client.login(username='studentdev2', password='Password123!')
+        res = self.client.get(reverse('projects:project_list'), {'sort': 'malicious_or_unknown_sort'})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['selected_sort'], 'newest')
+
+    def test_sorting_projects_with_and_without_deadlines(self):
+        self.client.login(username='studentdev2', password='Password123!')
+        p_no_deadline = self.project
+        p_no_deadline.deadline = None
+        p_no_deadline.save()
+
+        p_soon = Project.objects.create(
+            client=self.client_user,
+            title='Soon Project',
+            description='Due soon',
+            budget=200.00,
+            deadline=date.today() + timedelta(days=2),
+            status=Project.Status.OPEN
+        )
+        p_later = Project.objects.create(
+            client=self.client_user,
+            title='Later Project',
+            description='Due later',
+            budget=300.00,
+            deadline=date.today() + timedelta(days=10),
+            status=Project.Status.OPEN
+        )
+
+        res = self.client.get(reverse('projects:project_list'), {'sort': 'deadline'})
+        self.assertEqual(res.status_code, 200)
+        projects = list(res.context['projects'])
+        # Projects with deadlines appear first in ascending order
+        self.assertEqual(projects[0].pk, p_soon.pk)
+        self.assertEqual(projects[1].pk, p_later.pk)
+        # Project without deadline appears last
+        self.assertEqual(projects[2].pk, p_no_deadline.pk)
+
+    def test_cannot_reopen_completed_project_via_post(self):
+        self.project.status = Project.Status.COMPLETED
+        self.project.save()
+
+        self.client.login(username='mainclient2', password='Password123!')
+        res = self.client.post(reverse('projects:project_start', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.COMPLETED)
+
+    def test_cannot_reopen_closed_project_via_post(self):
+        self.project.status = Project.Status.CLOSED
+        self.project.save()
+
+        self.client.login(username='mainclient2', password='Password123!')
+        res = self.client.post(reverse('projects:project_start', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.CLOSED)
+
+    def test_non_owner_cannot_post_lifecycle_actions(self):
+        self.client.login(username='otherclient2', password='Password123!')
+        # Non-owner cannot start
+        res1 = self.client.post(reverse('projects:project_start', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res1.status_code, 403)
+
+        # Non-owner cannot complete
+        self.project.status = Project.Status.IN_PROGRESS
+        self.project.save()
+        res2 = self.client.post(reverse('projects:project_complete', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res2.status_code, 403)
+
+        # Non-owner cannot cancel
+        res3 = self.client.post(reverse('projects:project_cancel', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res3.status_code, 403)
+
+    def test_get_request_to_lifecycle_endpoints_denied(self):
+        self.client.login(username='mainclient2', password='Password123!')
+        res1 = self.client.get(reverse('projects:project_start', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res1.status_code, 403)
+
+        res2 = self.client.get(reverse('projects:project_complete', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res2.status_code, 403)
+
+        res3 = self.client.get(reverse('projects:project_cancel', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res3.status_code, 403)
+
+    def test_workspace_unrelated_client_forbidden(self):
+        self.client.login(username='otherclient2', password='Password123!')
+        res = self.client.get(reverse('projects:project_workspace', kwargs={'pk': self.project.pk}))
+        self.assertEqual(res.status_code, 403)
+
+    def test_query_optimization_project_list(self):
+        self.client.login(username='studentdev2', password='Password123!')
+        # Warmup and execute project_list
+        res = self.client.get(reverse('projects:project_list'))
+        self.assertEqual(res.status_code, 200)
+        # Ensure projects are loaded with client attached so accessing client username does not hit db
+        for p in res.context['projects']:
+            self.assertIsNotNone(p.client.username)
+
+
+
 

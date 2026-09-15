@@ -20,6 +20,12 @@ class ProjectForm(forms.ModelForm):
         for field in self.fields.values():
             field.widget.attrs.setdefault('class', 'form-control')
 
+    def clean_budget(self):
+        budget = self.cleaned_data.get('budget')
+        if budget is not None and budget <= 0:
+            raise forms.ValidationError("Budget must be a positive amount.")
+        return budget
+
     def clean_status(self):
         new_status = self.cleaned_data.get('status')
         if self.instance and self.instance.pk:

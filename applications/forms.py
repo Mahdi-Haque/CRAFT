@@ -15,3 +15,9 @@ class ApplicationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs.setdefault('class', 'form-control')
+
+    def clean_cover_letter(self):
+        cover_letter = self.cleaned_data.get('cover_letter', '').strip()
+        if not cover_letter:
+            raise forms.ValidationError("Cover letter cannot be blank.")
+        return cover_letter
