@@ -2,12 +2,11 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.shortcuts import render, redirect, get_object_or_404
 
 from .forms import ApplicationForm
 from .models import Application
-from projects.models import Project
 from projects.models import Project, ProjectTeam, ProjectMembership
 
 User = get_user_model()
@@ -38,8 +37,11 @@ def apply_to_project(request, pk):
             application.project = project
             application.student = request.user
             application.status = Application.Status.PENDING
-            application.save()
-            messages.success(request, "Application submitted!")
+            try:
+                application.save()
+                messages.success(request, "Application submitted!")
+            except IntegrityError:
+                messages.info(request, "You have already applied to this project.")
             return redirect('projects:project_detail', pk=project.pk)
     else:
         form = ApplicationForm()
@@ -48,10 +50,14 @@ def apply_to_project(request, pk):
 
 @login_required
 def withdraw_application(request, pk):
+    if request.method != 'POST':
+        raise PermissionDenied("Invalid request method.")
     application = get_object_or_404(Application, pk=pk, student=request.user)
-    if request.method == 'POST':
-        application.delete()
-        messages.success(request, "Application withdrawn.")
+    if application.status != Application.Status.PENDING:
+        messages.error(request, "Only pending applications can be withdrawn.")
+        return redirect('applications:student_dashboard')
+    application.delete()
+    messages.success(request, "Application withdrawn.")
     return redirect('applications:student_dashboard')
 
 
@@ -86,12 +92,6 @@ def update_application_status(request, pk, new_status):
         if application.project.status in (Project.Status.COMPLETED, Project.Status.CLOSED):
             messages.error(request, f"Cannot accept applications for a {application.project.get_status_display().lower()} project.")
             return redirect('applications:applicants_list', pk=application.project_id)
-        application.status = Application.Status.ACCEPTED
-        application.save()
-        if application.project.status == Project.Status.OPEN:
-            application.project.status = Project.Status.IN_PROGRESS
-            application.project.save()
-        messages.success(request, "Application accepted. Project is now in progress.")
         with transaction.atomic():
             application.status = Application.Status.ACCEPTED
             application.save()
@@ -125,8 +125,6 @@ def reject_application(request, pk):
 def student_dashboard(request):
     if not student_required(request.user):
         raise PermissionDenied("Only students can view this dashboard.")
-    applications = Application.objects.filter(student=request.user).select_related('project').order_by('-applied_at')
-    open_projects = Project.objects.filter(status='open').order_by('-created_at')[:6]
     applications = (
         Application.objects.filter(student=request.user)
         .select_related('project', 'project__client')
@@ -142,8 +140,6 @@ def student_dashboard(request):
         'applications': applications,
         'accepted_applications': accepted_applications,
         'open_projects': open_projects,
-        'pending_count': applications.filter(status='pending').count(),
-        'accepted_count': applications.filter(status='accepted').count(),
         'pending_count': applications.filter(status=Application.Status.PENDING).count(),
         'accepted_count': len(accepted_applications),
         'rejected_count': applications.filter(status=Application.Status.REJECTED).count(),
