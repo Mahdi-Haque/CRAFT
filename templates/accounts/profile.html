@@ -64,7 +64,7 @@
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 {% if service.price_estimate %}
-                                    <span class="fw-bold text-primary">${{ service.price_estimate }}</span>
+                                    <span class="fw-bold text-primary">৳ {{ service.price_estimate }}</span>
                                 {% endif %}
                                 <a href="{% url 'services:service_detail' service.pk %}" class="btn btn-sm btn-outline-secondary">
                                     View

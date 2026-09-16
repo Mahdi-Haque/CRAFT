@@ -47,7 +47,7 @@ class AccountsTests(TestCase):
     def test_student_registration_flow(self):
         response = self.client.post(reverse('accounts:register'), {
             'username': 'newstudent',
-            'email': 'newstudent@ruet.ac.bd',
+            'email': '1903123@student.ruet.ac.bd',
             'role': 'student',
             'skills': 'C++, Embedded Systems',
             'company_name': '',
@@ -58,6 +58,77 @@ class AccountsTests(TestCase):
         new_user = User.objects.get(username='newstudent')
         self.assertTrue(new_user.is_student)
         self.assertEqual(new_user.skills, 'C++, Embedded Systems')
+
+    def test_student_registration_requires_exact_ruet_student_email(self):
+        invalid_emails = (
+            'student@gmail.com',
+            '123456@student.ruet.ac.bd',
+            '12345678@student.ruet.ac.bd',
+            'abcdefg@student.ruet.ac.bd',
+            '1234567@ruet.ac.bd',
+            '1234567@cse.ruet.ac.bd',
+            '1234567@student.ruet.com',
+        )
+        for index, email in enumerate(invalid_emails):
+            response = self.client.post(reverse('accounts:register'), {
+                'username': f'invalidstudent{index}',
+                'email': email,
+                'role': 'student',
+                'skills': '',
+                'company_name': '',
+                'password1': 'StrongPass123!',
+                'password2': 'StrongPass123!',
+            })
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('Student accounts require a valid RUET student email', response.context['form'].errors['email'][0])
+
+    def test_student_email_is_normalized_case_insensitively(self):
+        response = self.client.post(reverse('accounts:register'), {
+            'username': 'mixedstudent',
+            'email': '1903123@STUDENT.RUET.AC.BD',
+            'role': 'student',
+            'skills': '',
+            'company_name': '',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            User.objects.get(username='mixedstudent').email,
+            '1903123@student.ruet.ac.bd',
+        )
+
+    def test_client_accepts_general_and_ruet_student_emails(self):
+        for index, email in enumerate((
+            'someone@gmail.com',
+            'someone@yahoo.com',
+            'someone@outlook.com',
+            'someone@example.com',
+            '1234567@student.ruet.ac.bd',
+        )):
+            response = self.client.post(reverse('accounts:register'), {
+                'username': f'validclient{index}',
+                'email': email,
+                'role': 'client',
+                'skills': '',
+                'company_name': 'CRAFT Client',
+                'password1': 'StrongPass123!',
+                'password2': 'StrongPass123!',
+            })
+            self.assertEqual(response.status_code, 302)
+
+    def test_client_rejects_invalid_email_syntax(self):
+        response = self.client.post(reverse('accounts:register'), {
+            'username': 'invalidclient',
+            'email': 'not-an-email',
+            'role': 'client',
+            'skills': '',
+            'company_name': 'CRAFT Client',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['form'].errors['email'])
 
     def test_client_registration_requires_company(self):
         response = self.client.post(reverse('accounts:register'), {
@@ -123,4 +194,3 @@ class AccountsTests(TestCase):
         auth_res = self.client.get(reverse('home'))
         self.assertEqual(auth_res.status_code, 302)
         self.assertEqual(auth_res['Location'], reverse('accounts:dashboard'))
-

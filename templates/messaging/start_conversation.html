@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}Start New Conversation &middot; CRAFT{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+
+        <!-- Back Link -->
+        <div class="mb-3">
+            <a href="{% url 'messaging:conversation_list' %}" class="text-muted small text-decoration-none d-inline-flex align-items-center gap-1">
+                &larr; Back to Messages
+            </a>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold">Start a New Conversation</h5>
+                <p class="text-muted small mb-0">Select a campus user to open a direct, private communication thread.</p>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" action="{% url 'messaging:start_conversation' %}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label for="{{ form.recipient.id_for_label }}" class="form-label fw-semibold">Recipient User</label>
+                        {{ form.recipient }}
+                        {% if form.recipient.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.recipient.errors.0 }}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">Choose a student, client, or admin to message.</div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'messaging:conversation_list' %}" class="btn btn-outline-secondary">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary d-inline-flex align-items-center gap-1">
+                            <span>Open Conversation</span> <span>&rarr;</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+

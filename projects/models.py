@@ -32,7 +32,7 @@ class Project(models.Model):
         default='',
         help_text="Required skills or technologies, comma-separated (e.g. Python, ROS, Figma)"
     )
-    budget = models.DecimalField(max_digits=10, decimal_places=2, help_text="Budget in USD")
+    budget = models.DecimalField(max_digits=10, decimal_places=2, help_text="Budget in Bangladeshi Taka (BDT)")
     deadline = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -134,5 +134,4 @@ class ProjectMembership(models.Model):
 
 # Developer alias
 Team = ProjectTeam
-
 

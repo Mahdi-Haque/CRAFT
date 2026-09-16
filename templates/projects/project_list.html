@@ -82,7 +82,7 @@
 
                 <div class="cw-item-meta">
                     <div>
-                        <div class="cw-budget-tag">${{ project.budget }}</div>
+                        <div class="cw-budget-tag">৳ {{ project.budget }}</div>
                         {% if project.deadline %}
                             <div class="cw-meta-sub">Due: {{ project.deadline|date:"M d, Y" }}</div>
                         {% endif %}
@@ -172,4 +172,3 @@
     </div>
 {% endif %}
 {% endblock %}
-
