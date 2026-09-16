@@ -33,7 +33,7 @@ class ServiceForm(forms.ModelForm):
             'price_estimate': forms.NumberInput(attrs={
                 'min': 0,
                 'step': '0.01',
-                'placeholder': 'e.g. 25.00'
+                'placeholder': 'e.g. 2500.00'
             }),
             'is_active': forms.CheckboxInput(attrs={
                 'class': 'form-check-input'

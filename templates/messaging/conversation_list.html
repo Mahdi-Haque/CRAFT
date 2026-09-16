@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load tz %}
+{% block title %}Messages &middot; CRAFT{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4 pb-2 border-bottom">
+    <div>
+        <h2 class="fw-bold mb-1">Messages</h2>
+        <p class="text-muted small mb-0">Private user-to-user conversations with RUET peers, clients, and collaborators.</p>
+    </div>
+    <div>
+        <a href="{% url 'messaging:start_conversation' %}" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1">
+            <span>✉️</span> Start Conversation
+        </a>
+    </div>
+</div>
+
+<!-- Conversation Thread List -->
+{% if conversation_data %}
+    <div class="row g-3">
+        <div class="col-12 col-lg-8 mx-auto">
+            <div class="list-group shadow-sm">
+                {% for item in conversation_data %}
+                    <a href="{% url 'messaging:conversation_detail' item.conversation.pk %}" class="list-group-item list-group-item-action p-3 {% if item.unread_count > 0 %}border-primary bg-light{% endif %}">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="cw-user-avatar" style="width: 42px; height: 42px; font-size: 1.1rem;">
+                                    {{ item.other_user.username|make_list|first|upper }}
+                                </div>
+                                <div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <h6 class="mb-0 fw-bold text-dark">{{ item.other_user.get_full_name|default:item.other_user.username }}</h6>
+                                        <span class="cw-role-pill cw-role-{{ item.other_user.role }}">{{ item.other_user.role|capfirst }}</span>
+                                    </div>
+                                    <div class="text-muted small text-truncate mt-1" style="max-width: 450px;">
+                                        {% if item.latest_message %}
+                                            {% if item.latest_message.sender == user %}
+                                                <span class="text-secondary fw-semibold">You: </span>
+                                            {% endif %}
+                                            {{ item.latest_message.content }}
+                                        {% else %}
+                                            <span class="fst-italic text-secondary">No messages yet. Click to start chatting.</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-end ms-3">
+                                {% if item.latest_message %}
+                                    <div class="text-muted" style="font-size: 0.75rem;">
+                                        {{ item.latest_message.created_at|localtime|timesince }} ago
+                                    </div>
+                                {% endif %}
+                                {% if item.unread_count > 0 %}
+                                    <span class="badge rounded-pill bg-primary mt-1">
+                                        {{ item.unread_count }} new
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+{% else %}
+    <!-- Empty State -->
+    <div class="card shadow-sm border-0 text-center py-5 my-4">
+        <div class="card-body">
+            <div class="display-4 mb-3 text-muted">💬</div>
+            <h4 class="fw-bold mb-2">No Conversations Yet</h4>
+            <p class="text-muted mb-4" style="max-width: 420px; margin: 0 auto;">
+                Connect directly with fellow students, freelancers, or clients to discuss project details and collaborate.
+            </p>
+            <a href="{% url 'messaging:start_conversation' %}" class="btn btn-primary px-4">
+                Start a New Conversation
+            </a>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

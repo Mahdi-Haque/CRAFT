@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.core.exceptions import ValidationError
@@ -37,9 +39,23 @@ class RegisterForm(UserCreationForm):
         cleaned_data = super().clean()
         role = cleaned_data.get('role')
         company_name = cleaned_data.get('company_name')
+        email = cleaned_data.get('email')
         if role == User.Role.CLIENT and not company_name:
             raise ValidationError({'company_name': 'Company name is required for client accounts.'})
+        if role == User.Role.STUDENT and (
+            not email
+            or not re.fullmatch(r'[0-9]{7}@student\.ruet\.ac\.bd', email, re.IGNORECASE)
+        ):
+            raise ValidationError({
+                'email': (
+                    'Student accounts require a valid RUET student email in the '
+                    'format XXXXXXX@student.ruet.ac.bd.'
+                )
+            })
         return cleaned_data
+
+    def clean_email(self):
+        return self.cleaned_data['email'].strip().lower()
 
     def save(self, commit=True):
         user = super().save(commit=False)

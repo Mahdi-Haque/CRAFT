@@ -47,7 +47,7 @@ class ProjectsTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, 'Autonomous Rover Firmware')
         self.assertContains(res, 'Robotics')
-        self.assertContains(res, '$250.00')
+        self.assertContains(res, '৳ 250.00')
 
     def test_project_detail_view(self):
         self.client.login(username='studentuser', password='Password123!')
@@ -1413,7 +1413,6 @@ class ProjectHardeningTests(TestCase):
         # Ensure projects are loaded with client attached so accessing client username does not hit db
         for p in res.context['projects']:
             self.assertIsNotNone(p.client.username)
-
 
 
 

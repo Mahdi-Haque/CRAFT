@@ -59,7 +59,7 @@ class Service(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
-        help_text="Optional starting price or estimated budget in USD"
+        help_text="Optional starting price or estimated budget in Bangladeshi Taka (BDT)"
     )
     is_active = models.BooleanField(
         default=True,

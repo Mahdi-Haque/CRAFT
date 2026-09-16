@@ -21,7 +21,7 @@
                     <span>Turnaround: ~{{ service.delivery_time_days }} day{{ service.delivery_time_days|pluralize }}</span>
                     {% if service.price_estimate %}
                         <span>&middot;</span>
-                        <span>Price: ${{ service.price_estimate }}</span>
+                        <span>Price: ৳ {{ service.price_estimate }}</span>
                     {% endif %}
                 </div>
             </div>

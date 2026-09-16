@@ -87,7 +87,7 @@ class ServicesDomainTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, 'Professional Event Poster Design')
         self.assertContains(res, 'Graphic Design')
-        self.assertContains(res, '$20.00')
+        self.assertContains(res, '৳ 20.00')
         self.assertContains(res, '~2 Days')
         self.assertContains(res, 'servicecreator')
 

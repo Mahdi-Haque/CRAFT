@@ -48,6 +48,16 @@
                     <li>
                         <a class="cw-nav-link" href="{% url 'services:service_list' %}">Services Marketplace</a>
                     </li>
+                    <li>
+                        <a class="cw-nav-link d-inline-flex align-items-center gap-1" href="{% url 'messaging:conversation_list' %}">
+                            <span>Messages</span>
+                            {% if unread_message_count %}
+                                <span class="badge rounded-pill bg-danger" aria-label="{{ unread_message_count }} unread messages">
+                                    {{ unread_message_count }}
+                                </span>
+                            {% endif %}
+                        </a>
+                    </li>
                     {% if user.is_client or user.is_admin_role %}
                         <li>
                             <a class="cw-nav-link text-primary fw-bold" href="{% url 'projects:project_create' %}">+ Post Project</a>

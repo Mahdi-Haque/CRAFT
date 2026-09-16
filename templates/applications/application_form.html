@@ -17,7 +17,7 @@
                 <h4 class="fw-bold text-dark mb-1">{{ project.title }}</h4>
                 <div class="d-flex flex-wrap gap-3 text-muted small mt-2">
                     <span>Organized by: <strong class="text-dark">{{ project.client.company_name|default:project.client.username }}</strong></span>
-                    <span>Budget: <strong class="text-primary">${{ project.budget }}</strong></span>
+                    <span>Budget: <strong class="text-primary">৳ {{ project.budget }}</strong></span>
                     {% if project.deadline %}
                         <span>Deadline: <strong>{{ project.deadline|date:"M d, Y" }}</strong></span>
                     {% endif %}

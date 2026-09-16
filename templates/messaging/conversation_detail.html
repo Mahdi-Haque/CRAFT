@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% load tz %}
+{% block title %}Chat with {{ other_user.username }} &middot; CRAFT{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-9">
+
+        <!-- Top Navigation / Header -->
+        <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+            <div class="d-flex align-items-center gap-3">
+                <a href="{% url 'messaging:conversation_list' %}" class="btn btn-outline-secondary btn-sm" title="Back to all conversations">
+                    &larr; Back
+                </a>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="cw-user-avatar" style="width: 40px; height: 40px; font-size: 1rem;">
+                        {{ other_user.username|make_list|first|upper }}
+                    </div>
+                    <div>
+                        <h5 class="mb-0 fw-bold">{{ other_user.get_full_name|default:other_user.username }}</h5>
+                        <div class="d-flex align-items-center gap-1">
+                            <span class="cw-role-pill cw-role-{{ other_user.role }}">{{ other_user.role|capfirst }}</span>
+                            <span class="text-muted small">&bull; {{ other_user.email }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <span class="text-muted small">Conversation #{{ conversation.pk }}</span>
+            </div>
+        </div>
+
+        <!-- Chat History Card -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-body p-4" style="min-height: 380px; max-height: 520px; overflow-y: auto; background-color: var(--cw-bg-subtle, #f8f9fa);">
+                {% if message_history %}
+                    <div class="d-flex flex-column gap-3">
+                        {% for msg in message_history %}
+                            {% if msg.sender == user %}
+                                <!-- Sent Message (Right) -->
+                                <div class="d-flex flex-column align-items-end">
+                                    <div class="p-3 rounded-3 text-white bg-primary shadow-sm" style="max-width: 75%; border-bottom-right-radius: 4px !important;">
+                                        <div style="white-space: pre-wrap; word-break: break-word;">{{ msg.content }}</div>
+                                    </div>
+                                    <div class="text-muted mt-1" style="font-size: 0.72rem;">
+                                        {{ msg.created_at|localtime|date:"M j, g:i a" }}
+                                        {% if msg.is_read %}
+                                            &middot; <span class="text-primary fw-bold" title="Read by recipient">✓✓ Read</span>
+                                        {% else %}
+                                            &middot; <span class="text-muted" title="Delivered">✓ Sent</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% else %}
+                                <!-- Received Message (Left) -->
+                                <div class="d-flex flex-column align-items-start">
+                                    <div class="d-flex align-items-start gap-2" style="max-width: 75%;">
+                                        <div class="cw-user-avatar flex-shrink-0" style="width: 28px; height: 28px; font-size: 0.75rem;">
+                                            {{ msg.sender.username|make_list|first|upper }}
+                                        </div>
+                                        <div class="p-3 rounded-3 bg-white text-dark border shadow-sm" style="border-bottom-left-radius: 4px !important;">
+                                            <div style="white-space: pre-wrap; word-break: break-word;">{{ msg.content }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="text-muted ms-5 mt-1" style="font-size: 0.72rem;">
+                                        {{ msg.created_at|localtime|date:"M j, g:i a" }}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <!-- No Messages Yet Placeholder -->
+                    <div class="d-flex flex-column align-items-center justify-content-center h-100 py-5 text-center text-muted">
+                        <div class="fs-1 mb-2">👋</div>
+                        <h6 class="fw-bold">No messages in this thread yet.</h6>
+                        <p class="small mb-0">Send a greeting below to start the conversation with {{ other_user.username }}.</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Message Form Footer -->
+            <div class="card-footer bg-white p-3 border-top">
+                <form method="post" action="{% url 'messaging:send_message' conversation.pk %}">
+                    {% csrf_token %}
+                    <div class="mb-2">
+                        {{ form.content }}
+                        {% if form.content.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.content.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted small">Press "Send Message" to send privately.</span>
+                        <button type="submit" class="btn btn-primary d-inline-flex align-items-center gap-1">
+                            <span>Send Message</span> <span>&rarr;</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
