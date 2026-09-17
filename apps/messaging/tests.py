@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from .models import Conversation, Message
 from .forms import MessageForm, StartConversationForm
+from apps.notifications.models import Notification
 
 User = get_user_model()
 
@@ -288,6 +289,59 @@ class MessagingViewTests(TestCase):
         msg = conv.messages.first()
         self.assertEqual(msg.sender, self.user1)
         self.assertEqual(msg.content, 'Hello Bob, looking forward to working with you.')
+
+    def test_sending_message_notifies_other_participant(self):
+        conv, _ = Conversation.get_or_create_between(self.user1, self.user2)
+        self.client.login(username='alice', password='Password123!')
+
+        response = self.client.post(
+            reverse('messaging:send_message', kwargs={'pk': conv.pk}),
+            {'content': 'Hello Bob'},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        notifications = Notification.objects.filter(
+            notification_type=Notification.NotificationType.NEW_MESSAGE
+        )
+        self.assertEqual(notifications.count(), 1)
+        notification = notifications.get()
+        self.assertEqual(notification.recipient, self.user2)
+        self.assertEqual(notification.title, 'New message')
+        self.assertEqual(notification.message, 'alice sent you a new message.')
+        self.assertEqual(
+            notification.link,
+            reverse('messaging:conversation_detail', kwargs={'pk': conv.pk}),
+        )
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.user1).exists()
+        )
+
+    def test_multiple_messages_create_separate_notifications_newest_first(self):
+        conv, _ = Conversation.get_or_create_between(self.user1, self.user2)
+        self.client.login(username='alice', password='Password123!')
+
+        self.client.post(
+            reverse('messaging:send_message', kwargs={'pk': conv.pk}),
+            {'content': 'First message'},
+        )
+        self.client.post(
+            reverse('messaging:send_message', kwargs={'pk': conv.pk}),
+            {'content': 'Second message'},
+        )
+
+        notifications = Notification.objects.filter(recipient=self.user2)
+        self.assertEqual(notifications.count(), 2)
+        self.assertEqual(
+            list(notifications.values_list('message', flat=True)),
+            [
+                'alice sent you a new message.',
+                'alice sent you a new message.',
+            ],
+        )
+        self.assertGreaterEqual(
+            notifications.first().created_at,
+            notifications.last().created_at,
+        )
 
     def test_non_participant_cannot_send_message(self):
         conv, _ = Conversation.get_or_create_between(self.user1, self.user2)

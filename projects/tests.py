@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from projects.models import Project, ProjectTeam, ProjectMembership
 from projects.forms import ProjectForm
 from applications.models import Application
+from apps.notifications.models import Notification
 
 User = get_user_model()
 
@@ -733,6 +734,81 @@ class ProjectLifecycleTests(TestCase):
         self.project.refresh_from_db()
         self.assertEqual(self.project.status, Project.Status.IN_PROGRESS)
 
+    def test_start_notifies_owner_and_current_team_members_once(self):
+        team = self.project.get_team()
+        ProjectMembership.objects.create(team=team, user=self.owner)
+        ProjectMembership.objects.create(team=team, user=self.student)
+        unrelated = User.objects.create_user(
+            username='unrelated-start',
+            email='unrelated-start@ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT,
+        )
+        Application.objects.create(
+            project=self.project,
+            student=unrelated,
+            cover_letter='Pending application',
+            status=Application.Status.PENDING,
+        )
+
+        self.client.login(username='clientowner', password='Password123!')
+        res = self.client.post(
+            reverse('projects:project_start', kwargs={'pk': self.project.pk})
+        )
+
+        self.assertEqual(res.status_code, 302)
+        self.assertEqual(
+            Notification.objects.filter(
+                notification_type=Notification.NotificationType.PROJECT_STARTED
+            ).count(),
+            2,
+        )
+        recipients = set(
+            Notification.objects.filter(
+                notification_type=Notification.NotificationType.PROJECT_STARTED
+            ).values_list('recipient_id', flat=True)
+        )
+        self.assertEqual(recipients, {self.owner.id, self.student.id})
+        notification = Notification.objects.get(
+            recipient=self.owner,
+            notification_type=Notification.NotificationType.PROJECT_STARTED,
+        )
+        self.assertEqual(notification.title, 'Project started')
+        self.assertIn(self.project.title, notification.message)
+        self.assertEqual(
+            notification.link,
+            reverse('projects:project_detail', kwargs={'pk': self.project.pk}),
+        )
+        self.assertFalse(
+            Notification.objects.filter(recipient=unrelated).exists()
+        )
+
+    def test_unauthorized_start_does_not_notify(self):
+        self.client.login(username='otherclient', password='Password123!')
+        response = self.client.post(
+            reverse('projects:project_start', kwargs={'pk': self.project.pk})
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Notification.objects.exists())
+
+    def test_get_or_invalid_start_does_not_notify(self):
+        self.client.login(username='clientowner', password='Password123!')
+
+        get_response = self.client.get(
+            reverse('projects:project_start', kwargs={'pk': self.project.pk})
+        )
+        self.assertEqual(get_response.status_code, 403)
+        self.assertFalse(Notification.objects.exists())
+
+        self.project.status = Project.Status.COMPLETED
+        self.project.save()
+        invalid_response = self.client.post(
+            reverse('projects:project_start', kwargs={'pk': self.project.pk})
+        )
+        self.assertEqual(invalid_response.status_code, 302)
+        self.assertFalse(Notification.objects.exists())
+
     def test_non_owner_cannot_start_or_change_lifecycle(self):
         self.client.login(username='otherclient', password='Password123!')
         res = self.client.post(reverse('projects:project_start', kwargs={'pk': self.project.pk}))
@@ -754,6 +830,58 @@ class ProjectLifecycleTests(TestCase):
         self.assertEqual(res.status_code, 302)
         self.project.refresh_from_db()
         self.assertEqual(self.project.status, Project.Status.COMPLETED)
+
+    def test_complete_notifies_owner_and_current_team_members(self):
+        self.project.status = Project.Status.IN_PROGRESS
+        self.project.save()
+        team = self.project.get_team()
+        ProjectMembership.objects.create(team=team, user=self.student)
+
+        self.client.login(username='clientowner', password='Password123!')
+        res = self.client.post(
+            reverse('projects:project_complete', kwargs={'pk': self.project.pk})
+        )
+
+        self.assertEqual(res.status_code, 302)
+        self.assertEqual(
+            Notification.objects.filter(
+                notification_type=Notification.NotificationType.PROJECT_COMPLETED
+            ).count(),
+            2,
+        )
+        self.assertEqual(
+            set(
+                Notification.objects.filter(
+                    notification_type=Notification.NotificationType.PROJECT_COMPLETED
+                ).values_list('recipient_id', flat=True)
+            ),
+            {self.owner.id, self.student.id},
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.owner,
+                notification_type=Notification.NotificationType.PROJECT_COMPLETED,
+                link=reverse(
+                    'projects:project_detail',
+                    kwargs={'pk': self.project.pk},
+                ),
+            ).exists()
+        )
+
+    def test_unauthorized_or_invalid_complete_does_not_notify(self):
+        self.client.login(username='studentdev', password='Password123!')
+        unauthorized_response = self.client.post(
+            reverse('projects:project_complete', kwargs={'pk': self.project.pk})
+        )
+        self.assertEqual(unauthorized_response.status_code, 403)
+        self.assertFalse(Notification.objects.exists())
+
+        self.client.login(username='clientowner', password='Password123!')
+        invalid_response = self.client.post(
+            reverse('projects:project_complete', kwargs={'pk': self.project.pk})
+        )
+        self.assertEqual(invalid_response.status_code, 302)
+        self.assertFalse(Notification.objects.exists())
 
     def test_non_owner_cannot_complete_project(self):
         self.project.status = Project.Status.IN_PROGRESS
@@ -785,6 +913,43 @@ class ProjectLifecycleTests(TestCase):
         self.assertEqual(res2.status_code, 302)
         proj2.refresh_from_db()
         self.assertEqual(proj2.status, Project.Status.CLOSED)
+
+    def test_close_notifies_owner_and_current_team_members(self):
+        team = self.project.get_team()
+        ProjectMembership.objects.create(team=team, user=self.student)
+
+        self.client.login(username='clientowner', password='Password123!')
+        res = self.client.post(
+            reverse('projects:project_cancel', kwargs={'pk': self.project.pk})
+        )
+
+        self.assertEqual(res.status_code, 302)
+        self.assertEqual(
+            Notification.objects.filter(
+                notification_type=Notification.NotificationType.PROJECT_CLOSED
+            ).count(),
+            2,
+        )
+        self.assertEqual(
+            set(
+                Notification.objects.filter(
+                    notification_type=Notification.NotificationType.PROJECT_CLOSED
+                ).values_list('recipient_id', flat=True)
+            ),
+            {self.owner.id, self.student.id},
+        )
+
+    def test_completed_project_cannot_be_closed_or_notify(self):
+        self.project.status = Project.Status.COMPLETED
+        self.project.save()
+        self.client.login(username='clientowner', password='Password123!')
+
+        response = self.client.post(
+            reverse('projects:project_cancel', kwargs={'pk': self.project.pk})
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Notification.objects.exists())
 
     def test_invalid_lifecycle_transitions_rejected(self):
         self.client.login(username='clientowner', password='Password123!')
@@ -1413,6 +1578,5 @@ class ProjectHardeningTests(TestCase):
         # Ensure projects are loaded with client attached so accessing client username does not hit db
         for p in res.context['projects']:
             self.assertIsNotNone(p.client.username)
-
 
 

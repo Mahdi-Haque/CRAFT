@@ -3,6 +3,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from projects.models import Project, ProjectTeam, ProjectMembership
 from applications.models import Application
+from apps.notifications.models import Notification
 
 User = get_user_model()
 
@@ -52,6 +53,40 @@ class ApplicationsTests(TestCase):
         self.assertEqual(res.status_code, 302)
         self.assertTrue(Application.objects.filter(project=self.project, student=self.student).exists())
 
+    def test_successful_application_notifies_project_owner(self):
+        self.client.login(username='studentuser', password='Password123!')
+
+        res = self.client.post(
+            reverse('applications:project_apply', kwargs={'pk': self.project.pk}),
+            {
+                'cover_letter': (
+                    'I have completed CSE 3100 microcontrollers lab '
+                    'and built an inverted pendulum.'
+                )
+            },
+        )
+
+        self.assertEqual(res.status_code, 302)
+        notifications = Notification.objects.filter(
+            notification_type=Notification.NotificationType.NEW_APPLICATION
+        )
+        self.assertEqual(notifications.count(), 1)
+        notification = notifications.get()
+        self.assertEqual(notification.recipient, self.client_user)
+        self.assertEqual(notification.title, 'New application')
+        self.assertIn('studentuser', notification.message)
+        self.assertIn(self.project.title, notification.message)
+        self.assertEqual(
+            notification.link,
+            reverse(
+                'applications:applicants_list',
+                kwargs={'pk': self.project.pk},
+            ),
+        )
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.student).exists()
+        )
+
     def test_cannot_apply_twice(self):
         Application.objects.create(
             project=self.project,
@@ -89,6 +124,167 @@ class ApplicationsTests(TestCase):
         self.assertEqual(accept_res.status_code, 302)
         app.refresh_from_db()
         self.assertEqual(app.status, Application.Status.ACCEPTED)
+
+    def test_accepting_application_notifies_applicant_once(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            cover_letter='Strong candidate proposal',
+        )
+        self.client.login(username='clientuser', password='Password123!')
+
+        res = self.client.post(
+            reverse('applications:application_accept', kwargs={'pk': app.pk})
+        )
+
+        self.assertEqual(res.status_code, 302)
+        notifications = Notification.objects.filter(
+            recipient=self.student,
+            notification_type=Notification.NotificationType.APPLICATION_ACCEPTED,
+        )
+        self.assertEqual(notifications.count(), 1)
+        notification = notifications.get()
+        self.assertEqual(notification.title, 'Application accepted')
+        self.assertIn(self.project.title, notification.message)
+        self.assertEqual(
+            notification.link,
+            reverse(
+                'projects:project_detail',
+                kwargs={'pk': self.project.pk},
+            ),
+        )
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.client_user).exists()
+        )
+
+        repeat_res = self.client.post(
+            reverse('applications:application_accept', kwargs={'pk': app.pk})
+        )
+        self.assertEqual(repeat_res.status_code, 302)
+        self.assertEqual(notifications.count(), 1)
+
+    def test_accepting_application_creates_team_added_notification(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            cover_letter='Strong candidate proposal',
+        )
+        self.client.login(username='clientuser', password='Password123!')
+
+        res = self.client.post(
+            reverse('applications:application_accept', kwargs={'pk': app.pk})
+        )
+
+        self.assertEqual(res.status_code, 302)
+        notifications = Notification.objects.filter(
+            recipient=self.student,
+            notification_type=Notification.NotificationType.TEAM_ADDED,
+        )
+        self.assertEqual(notifications.count(), 1)
+        notification = notifications.get()
+        self.assertEqual(notification.title, 'Team membership added')
+        self.assertIn(self.project.title, notification.message)
+        self.assertEqual(
+            notification.link,
+            reverse(
+                'projects:project_workspace',
+                kwargs={'pk': self.project.pk},
+            ),
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                recipient=self.client_user,
+                notification_type=Notification.NotificationType.TEAM_ADDED,
+            ).exists()
+        )
+        self.assertEqual(
+            ProjectMembership.objects.filter(
+                team=self.project.get_team(),
+                user=self.student,
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            Notification.objects.filter(
+                recipient=self.student,
+                notification_type=Notification.NotificationType.APPLICATION_ACCEPTED,
+            ).count(),
+            1,
+        )
+
+    def test_existing_membership_does_not_create_team_added_notification(self):
+        team = self.project.get_team()
+        ProjectMembership.objects.create(team=team, user=self.student)
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            cover_letter='Existing team member proposal',
+        )
+        self.client.login(username='clientuser', password='Password123!')
+
+        res = self.client.post(
+            reverse('applications:application_accept', kwargs={'pk': app.pk})
+        )
+
+        self.assertEqual(res.status_code, 302)
+        self.assertEqual(
+            ProjectMembership.objects.filter(team=team, user=self.student).count(),
+            1,
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                recipient=self.student,
+                notification_type=Notification.NotificationType.TEAM_ADDED,
+            ).exists()
+        )
+
+    def test_rejecting_application_notifies_applicant(self):
+        app = Application.objects.create(
+            project=self.project,
+            student=self.student,
+            cover_letter='Proposal text',
+        )
+        self.client.login(username='clientuser', password='Password123!')
+
+        res = self.client.post(
+            reverse('applications:application_reject', kwargs={'pk': app.pk})
+        )
+
+        self.assertEqual(res.status_code, 302)
+        notifications = Notification.objects.filter(
+            recipient=self.student,
+            notification_type=Notification.NotificationType.APPLICATION_REJECTED,
+        )
+        self.assertEqual(notifications.count(), 1)
+        notification = notifications.get()
+        self.assertEqual(notification.title, 'Application rejected')
+        self.assertIn(self.project.title, notification.message)
+        self.assertEqual(
+            notification.link,
+            reverse(
+                'projects:project_detail',
+                kwargs={'pk': self.project.pk},
+            ),
+        )
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.client_user).exists()
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                notification_type=Notification.NotificationType.TEAM_ADDED,
+            ).exists()
+        )
+
+    def test_invalid_application_does_not_create_notification(self):
+        self.client.login(username='studentuser', password='Password123!')
+
+        res = self.client.post(
+            reverse('applications:project_apply', kwargs={'pk': self.project.pk}),
+            {'cover_letter': ''},
+        )
+
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(Notification.objects.exists())
 
     def test_student_dashboard_and_withdraw(self):
         app = Application.objects.create(
@@ -146,9 +342,11 @@ class ApplicationsTests(TestCase):
         self.client.login(username='otherstudent', password='Password123!')
         res_accept = self.client.post(reverse('applications:application_accept', kwargs={'pk': app.pk}))
         self.assertEqual(res_accept.status_code, 403)
+        self.assertFalse(Notification.objects.exists())
 
         res_reject = self.client.post(reverse('applications:application_reject', kwargs={'pk': app.pk}))
         self.assertEqual(res_reject.status_code, 403)
+        self.assertFalse(Notification.objects.exists())
 
     def test_applicant_sees_submitted_status_on_project_detail(self):
         app = Application.objects.create(
@@ -256,6 +454,11 @@ class ApplicationsTests(TestCase):
         self.assertEqual(app.status, Application.Status.PENDING)
         self.project.refresh_from_db()
         self.assertEqual(self.project.status, Project.Status.COMPLETED)
+        self.assertFalse(
+            Notification.objects.filter(
+                notification_type=Notification.NotificationType.TEAM_ADDED,
+            ).exists()
+        )
 
     def test_accepting_application_creates_team_membership(self):
         app = Application.objects.create(
@@ -550,7 +753,3 @@ class ApplicationHardeningTests(TestCase):
         })
         self.assertEqual(res.status_code, 200)
         self.assertFalse(Application.objects.filter(project=self.project, student=self.student).exists())
-
-
-
-
