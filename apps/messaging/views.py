@@ -4,9 +4,12 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 
 from .forms import MessageForm, StartConversationForm
 from .models import Conversation, Message
+from apps.notifications.models import Notification
+from apps.notifications.services import create_notification
 
 User = get_user_model()
 
@@ -124,6 +127,15 @@ def send_message(request, pk):
         message.sender = request.user
         message.save()
         conversation.save()  # Triggers updated_at timestamp update
+        recipient = conversation.get_other_participant(request.user)
+        sender_name = request.user.get_full_name() or request.user.username
+        create_notification(
+            recipient=recipient,
+            notification_type=Notification.NotificationType.NEW_MESSAGE,
+            title='New message',
+            message=f'{sender_name} sent you a new message.',
+            link=reverse('messaging:conversation_detail', kwargs={'pk': conversation.pk}),
+        )
     else:
         for error in form.errors.get('content', []):
             messages.error(request, error)

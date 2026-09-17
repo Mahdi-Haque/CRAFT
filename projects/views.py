@@ -4,9 +4,12 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, F
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 
 from .forms import ProjectForm
 from .models import Project, ProjectTeam, ProjectMembership
+from apps.notifications.models import Notification
+from apps.notifications.services import create_notification
 
 SORT_OPTIONS = [
     ('newest', 'Newest first'),
@@ -198,6 +201,18 @@ def project_start(request, pk):
         return redirect('projects:project_detail', pk=project.pk)
     project.status = Project.Status.IN_PROGRESS
     project.save()
+    recipients = {project.client_id: project.client}
+    if hasattr(project, 'team'):
+        for membership in project.team.memberships.select_related('user'):
+            recipients[membership.user_id] = membership.user
+    for recipient in recipients.values():
+        create_notification(
+            recipient=recipient,
+            notification_type=Notification.NotificationType.PROJECT_STARTED,
+            title='Project started',
+            message=f'The project "{project.title}" has started.',
+            link=reverse('projects:project_detail', kwargs={'pk': project.pk}),
+        )
     messages.success(request, "Project has been moved to In Progress.")
     return redirect('projects:project_detail', pk=project.pk)
 
@@ -214,6 +229,18 @@ def project_complete(request, pk):
         return redirect('projects:project_detail', pk=project.pk)
     project.status = Project.Status.COMPLETED
     project.save()
+    recipients = {project.client_id: project.client}
+    if hasattr(project, 'team'):
+        for membership in project.team.memberships.select_related('user'):
+            recipients[membership.user_id] = membership.user
+    for recipient in recipients.values():
+        create_notification(
+            recipient=recipient,
+            notification_type=Notification.NotificationType.PROJECT_COMPLETED,
+            title='Project completed',
+            message=f'The project "{project.title}" has been completed.',
+            link=reverse('projects:project_detail', kwargs={'pk': project.pk}),
+        )
     messages.success(request, "Project has been marked as Completed.")
     return redirect('projects:project_detail', pk=project.pk)
 
@@ -230,6 +257,18 @@ def project_cancel(request, pk):
         return redirect('projects:project_detail', pk=project.pk)
     project.status = Project.Status.CLOSED
     project.save()
+    recipients = {project.client_id: project.client}
+    if hasattr(project, 'team'):
+        for membership in project.team.memberships.select_related('user'):
+            recipients[membership.user_id] = membership.user
+    for recipient in recipients.values():
+        create_notification(
+            recipient=recipient,
+            notification_type=Notification.NotificationType.PROJECT_CLOSED,
+            title='Project closed',
+            message=f'The project "{project.title}" has been closed.',
+            link=reverse('projects:project_detail', kwargs={'pk': project.pk}),
+        )
     messages.success(request, "Project has been closed.")
     return redirect('projects:project_detail', pk=project.pk)
 

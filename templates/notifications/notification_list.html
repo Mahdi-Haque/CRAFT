@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% load tz %}
+{% block title %}Notifications &middot; CRAFT{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4 pb-2 border-bottom">
+    <div>
+        <h2 class="fw-bold mb-1">Notifications</h2>
+        <p class="text-muted small mb-0">Stay updated on messages, applications, and project activities.</p>
+    </div>
+</div>
+
+<!-- Mark All as Read Button -->
+{% if has_unread %}
+    <div class="mb-3">
+        <form method="post" action="{% url 'notifications:mark_all_as_read' %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                Mark all as read
+            </button>
+        </form>
+    </div>
+{% endif %}
+
+<!-- Notifications List -->
+{% if notifications %}
+    <div class="row g-3">
+        <div class="col-12 col-lg-8 mx-auto">
+            <div class="list-group shadow-sm">
+                {% for notification in notifications %}
+                    <div class="list-group-item p-3 {% if not notification.is_read %}border-primary bg-light{% endif %}">
+                        <div class="d-flex align-items-start justify-content-between gap-3">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2">
+                                    <h6 class="mb-0 fw-bold text-dark">{{ notification.title }}</h6>
+                                    {% if not notification.is_read %}
+                                        <span class="badge bg-primary">new</span>
+                                    {% endif %}
+                                </div>
+                                <p class="mb-2 text-muted small">
+                                    <span class="badge cw-badge-info">
+                                        {{ notification.get_notification_type_display }}
+                                    </span>
+                                </p>
+                                <p class="mb-2 text-dark">{{ notification.message }}</p>
+                                <div class="text-muted small">
+                                    {{ notification.created_at|localtime|timesince }} ago
+                                </div>
+                            </div>
+                            <div class="text-end ms-3">
+                                {% if notification.link %}
+                                    <form method="post" action="{% url 'notifications:mark_as_read' notification.pk %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">
+                                            Open
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    {% if not notification.is_read %}
+                                        <form method="post" action="{% url 'notifications:mark_as_read' notification.pk %}" style="display: inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                                Mark as read
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+{% else %}
+    <!-- Empty State -->
+    <div class="card shadow-sm border-0 text-center py-5 my-4">
+        <div class="card-body">
+            <div class="display-4 mb-3 text-muted">🔔</div>
+            <h4 class="fw-bold mb-2">No Notifications</h4>
+            <p class="text-muted mb-4" style="max-width: 420px; margin: 0 auto;">
+                You're all caught up! When you receive messages, applications, or project updates, they'll appear here.
+            </p>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

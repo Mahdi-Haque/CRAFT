@@ -4,10 +4,13 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction, IntegrityError
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 
 from .forms import ApplicationForm
 from .models import Application
 from projects.models import Project, ProjectTeam, ProjectMembership
+from apps.notifications.models import Notification
+from apps.notifications.services import create_notification
 
 User = get_user_model()
 
@@ -39,6 +42,20 @@ def apply_to_project(request, pk):
             application.status = Application.Status.PENDING
             try:
                 application.save()
+                student_name = request.user.get_full_name() or request.user.username
+                create_notification(
+                    recipient=project.client,
+                    notification_type=Notification.NotificationType.NEW_APPLICATION,
+                    title='New application',
+                    message=(
+                        f'{student_name} applied to your project '
+                        f'"{project.title}".'
+                    ),
+                    link=reverse(
+                        'applications:applicants_list',
+                        kwargs={'pk': project.pk},
+                    ),
+                )
                 messages.success(request, "Application submitted!")
             except IntegrityError:
                 messages.info(request, "You have already applied to this project.")
@@ -96,15 +113,49 @@ def update_application_status(request, pk, new_status):
             application.status = Application.Status.ACCEPTED
             application.save()
             team, _ = ProjectTeam.objects.get_or_create(project=application.project)
-            ProjectMembership.objects.get_or_create(team=team, user=application.student)
+            membership, membership_created = ProjectMembership.objects.get_or_create(
+                team=team,
+                user=application.student,
+            )
             if application.project.status == Project.Status.OPEN:
                 application.project.status = Project.Status.IN_PROGRESS
                 application.project.save()
+        if membership_created:
+            create_notification(
+                recipient=application.student,
+                notification_type=Notification.NotificationType.TEAM_ADDED,
+                title='Team membership added',
+                message=f'You were added to the team for "{application.project.title}".',
+                link=reverse(
+                    'projects:project_workspace',
+                    kwargs={'pk': application.project_id},
+                ),
+            )
+        create_notification(
+            recipient=application.student,
+            notification_type=Notification.NotificationType.APPLICATION_ACCEPTED,
+            title='Application accepted',
+            message=f'Your application for "{application.project.title}" was accepted.',
+            link=reverse(
+                'projects:project_detail',
+                kwargs={'pk': application.project_id},
+            ),
+        )
         messages.success(request, "Application accepted. Student added to team and project is now in progress.")
         return redirect('applications:applicants_list', pk=application.project_id)
     else:
         application.status = Application.Status.REJECTED
         application.save()
+        create_notification(
+            recipient=application.student,
+            notification_type=Notification.NotificationType.APPLICATION_REJECTED,
+            title='Application rejected',
+            message=f'Your application for "{application.project.title}" was rejected.',
+            link=reverse(
+                'projects:project_detail',
+                kwargs={'pk': application.project_id},
+            ),
+        )
         messages.success(request, "Application marked as rejected.")
         return redirect('applications:applicants_list', pk=application.project_id)
 

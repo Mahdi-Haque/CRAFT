@@ -58,6 +58,16 @@
                             {% endif %}
                         </a>
                     </li>
+                    <li>
+                        <a class="cw-nav-link d-inline-flex align-items-center gap-1" href="{% url 'notifications:notification_list' %}">
+                            <span>Notifications</span>
+                            {% if unread_notification_count %}
+                                <span class="badge rounded-pill bg-warning text-dark" aria-label="{{ unread_notification_count }} unread notifications">
+                                    {{ unread_notification_count }}
+                                </span>
+                            {% endif %}
+                        </a>
+                    </li>
                     {% if user.is_client or user.is_admin_role %}
                         <li>
                             <a class="cw-nav-link text-primary fw-bold" href="{% url 'projects:project_create' %}">+ Post Project</a>
