@@ -1,0 +1,208 @@
+{% extends 'base.html' %}
+{% block title %}{{ profile_user.display_name }} &middot; CRAFT Campus Profile{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-4">
+    <div class="col-12 col-lg-9">
+        <!-- Public Profile Header Card -->
+        <div class="card p-4 p-md-5 mb-4 shadow-sm border-0">
+            <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-4">
+                <div class="d-flex align-items-center gap-4">
+                    <div class="cw-user-avatar" style="width: 80px; height: 80px; font-size: 2.25rem;">
+                        {% if profile_user.profile_picture %}
+                            <img src="{{ profile_user.profile_picture.url }}" alt="{{ profile_user.display_name }}">
+                        {% else %}
+                            {{ profile_user.username|make_list|first|upper }}
+                        {% endif %}
+                    </div>
+                    <div>
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                            <h2 class="fw-bold mb-0 text-dark">{{ profile_user.display_name }}</h2>
+                            <span class="cw-role-pill cw-role-{{ profile_user.role }}">{{ profile_user.role }}</span>
+                        </div>
+                        <div class="text-muted small mb-2">
+                            <span>@{{ profile_user.username }}</span>
+                            <span class="mx-1">&middot;</span>
+                            <span>Member since {{ profile_user.date_joined|date:"F Y" }}</span>
+                        </div>
+                        {% if profile_user.department %}
+                            <div class="text-secondary small fw-medium">
+                                🎓 {{ profile_user.department }}{% if profile_user.student_id %} &middot; Roll: {{ profile_user.student_id }}{% endif %}
+                            </div>
+                        {% elif profile_user.company_name and profile_user.is_client %}
+                            <div class="text-secondary small fw-medium">
+                                🏢 {{ profile_user.company_name }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    {% if is_owner %}
+                        <a href="{% url 'accounts:profile_edit' %}" class="btn btn-outline-primary">
+                            ✏️ Edit My Profile
+                        </a>
+                        <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary">
+                            My Dashboard &rarr;
+                        </a>
+                    {% else %}
+                        <a href="{% url 'messaging:start_conversation' %}?user={{ profile_user.pk }}" class="btn btn-primary d-inline-flex align-items-center gap-2">
+                            💬 <span>Send Message</span>
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Bio / About -->
+            {% if profile_user.bio %}
+                <div class="mt-4 pt-3 border-top">
+                    <h6 class="fw-bold text-dark mb-2">About</h6>
+                    <p class="text-muted small mb-0" style="white-space: pre-line;">{{ profile_user.bio }}</p>
+                </div>
+            {% endif %}
+
+            <!-- External / Portfolio Links -->
+            {% if profile_user.portfolio_url or profile_user.github_url or profile_user.linkedin_url or profile_user.website_url %}
+                <div class="d-flex flex-wrap gap-2 mt-3 pt-2">
+                    {% if profile_user.portfolio_url %}
+                        <a href="{{ profile_user.portfolio_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-dark d-inline-flex align-items-center gap-1">
+                            🌐 <span>Portfolio Website</span>
+                        </a>
+                    {% endif %}
+                    {% if profile_user.github_url %}
+                        <a href="{{ profile_user.github_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-dark d-inline-flex align-items-center gap-1">
+                            💻 <span>GitHub</span>
+                        </a>
+                    {% endif %}
+                    {% if profile_user.linkedin_url %}
+                        <a href="{{ profile_user.linkedin_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+                            🔗 <span>LinkedIn</span>
+                        </a>
+                    {% endif %}
+                    {% if profile_user.website_url %}
+                        <a href="{{ profile_user.website_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1">
+                            🏢 <span>Website</span>
+                        </a>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            <!-- Skills List -->
+            {% if profile_user.skills_list %}
+                <div class="mt-4 pt-3 border-top">
+                    <h6 class="fw-bold text-dark mb-2">Verified Campus Skills</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for skill in profile_user.skills_list %}
+                            <span class="cw-skill-chip">{{ skill }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Student Service Offerings -->
+        {% if profile_user.is_student %}
+            <div class="card p-4 p-md-5 mb-4 shadow-sm border-0">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div>
+                        <h4 class="fw-bold mb-1">Services Offered</h4>
+                        <p class="text-muted small mb-0">Freelance and collaboration services offered to the campus community.</p>
+                    </div>
+                    {% if is_owner %}
+                        <a href="{% url 'services:service_create' %}" class="btn btn-sm btn-outline-primary">
+                            + Add Service
+                        </a>
+                    {% endif %}
+                </div>
+
+                {% if services %}
+                    <div class="row g-3">
+                        {% for service in services %}
+                            <div class="col-12 col-md-6">
+                                <div class="card h-100 p-3 shadow-none border rounded-3 d-flex flex-column justify-content-between">
+                                    <div>
+                                        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                            <span class="badge bg-primary">{{ service.category }}</span>
+                                            {% if service.price_estimate %}
+                                                <span class="fw-bold text-primary">৳ {{ service.price_estimate }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <h6 class="fw-bold text-dark mb-1">
+                                            <a href="{% url 'services:service_detail' service.pk %}" class="text-decoration-none text-dark">
+                                                {{ service.title }}
+                                            </a>
+                                        </h6>
+                                        <p class="text-muted small mb-2 text-truncate-2" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                            {{ service.description }}
+                                        </p>
+                                    </div>
+                                    <div class="d-flex align-items-center justify-content-between pt-2 border-top mt-2">
+                                        <span class="text-muted small">⏱️ ~{{ service.delivery_time_days }} days</span>
+                                        <a href="{% url 'services:service_detail' service.pk %}" class="btn btn-sm btn-outline-secondary">
+                                            View Details &rarr;
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 bg-light rounded-3">
+                        <div class="text-muted small">No active services published yet.</div>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <!-- Client Projects Posted -->
+        {% if profile_user.is_client %}
+            <div class="card p-4 p-md-5 mb-4 shadow-sm border-0">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div>
+                        <h4 class="fw-bold mb-1">Projects & Opportunities</h4>
+                        <p class="text-muted small mb-0">Campus projects posted by {{ profile_user.display_name }}.</p>
+                    </div>
+                    {% if is_owner %}
+                        <a href="{% url 'projects:project_create' %}" class="btn btn-sm btn-outline-primary">
+                            + Post Project
+                        </a>
+                    {% endif %}
+                </div>
+
+                {% if projects %}
+                    <div class="list-group list-group-flush">
+                        {% for project in projects %}
+                            <div class="list-group-item px-0 py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+                                <div>
+                                    <h6 class="fw-bold mb-1">
+                                        <a href="{% url 'projects:project_detail' project.pk %}" class="text-decoration-none text-dark">
+                                            {{ project.title }}
+                                        </a>
+                                    </h6>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <span class="badge bg-secondary">{{ project.get_status_display }}</span>
+                                        {% if project.category %}
+                                            <span class="badge bg-light text-dark border">{{ project.category }}</span>
+                                        {% endif %}
+                                        <span class="text-muted small">Deadline: {{ project.deadline|default:"Flexible" }}</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fw-bold text-success">৳ {{ project.budget }}</span>
+                                    <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-sm btn-outline-secondary">
+                                        View &rarr;
+                                    </a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 bg-light rounded-3">
+                        <div class="text-muted small">No active projects currently listed.</div>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

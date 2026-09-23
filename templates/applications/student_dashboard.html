@@ -4,16 +4,33 @@
 {% block content %}
 <!-- Student Welcome Header -->
 <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4 pb-2 border-bottom">
-    <div>
-        <div class="d-flex align-items-center gap-2 mb-1">
-            <h2 class="fw-bold mb-0">Welcome back, {{ user.get_full_name|default:user.username }} 👋</h2>
-            <span class="cw-role-pill cw-role-student">Student</span>
+    <div class="d-flex align-items-center gap-3">
+        <div class="cw-user-avatar" style="width: 52px; height: 52px; font-size: 1.4rem;">
+            {% if user.profile_picture %}
+                <img src="{{ user.profile_picture.url }}" alt="{{ user.display_name }}">
+            {% else %}
+                {{ user.username|make_list|first|upper }}
+            {% endif %}
         </div>
-        <p class="text-muted small mb-0">Track your project proposals, collaboration invites, and discover new campus work.</p>
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h2 class="fw-bold mb-0">Welcome back, {{ user.display_name }} 👋</h2>
+                <span class="cw-role-pill cw-role-student">Student</span>
+            </div>
+            <p class="text-muted small mb-0">
+                {% if user.department %}
+                    <span>🎓 {{ user.department }}{% if user.student_id %} &middot; Roll: {{ user.student_id }}{% endif %} &middot; </span>
+                {% endif %}
+                Track your project proposals, collaboration invites, and discover new campus work.
+            </p>
+        </div>
     </div>
     <div class="d-flex align-items-center gap-2">
-        <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary btn-sm">
-            ✏️ Edit Profile & Skills
+        <a href="{% url 'accounts:public_profile' user.pk %}" class="btn btn-outline-secondary btn-sm" title="View your public campus profile">
+            👁️ Public Profile
+        </a>
+        <a href="{% url 'accounts:profile_edit' %}" class="btn btn-outline-secondary btn-sm">
+            ✏️ Edit Profile
         </a>
         <a href="{% url 'projects:project_list' %}" class="btn btn-primary btn-sm">
             🔍 Explore Projects

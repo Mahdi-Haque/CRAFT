@@ -10,4 +10,7 @@ urlpatterns = [
     path('logout/', views.CustomLogoutView.as_view(), name='logout'),
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('profile/', views.profile_view, name='profile'),
+    path('profile/edit/', views.profile_edit_view, name='profile_edit'),
+    path('profile/<int:pk>/', views.public_profile_view, name='profile_detail'),
+    path('users/<int:pk>/', views.public_profile_view, name='public_profile'),
 ]

@@ -1,10 +1,13 @@
-from django.contrib.auth import login
+from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
 from django.contrib import messages
-from django.shortcuts import render, redirect
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import render, redirect, get_object_or_404
 
 from .forms import RegisterForm, ProfileUpdateForm, StyledAuthenticationForm
+
+User = get_user_model()
 
 
 def register_view(request):
@@ -53,12 +56,65 @@ def dashboard_view(request):
 
 @login_required
 def profile_view(request):
+    """
+    View own profile. Also supports direct updates to preserve backwards
+    compatibility with existing tests and forms.
+    """
     if request.method == 'POST':
-        form = ProfileUpdateForm(request.POST, instance=request.user)
+        form = ProfileUpdateForm(request.POST, request.FILES, instance=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, "Profile updated successfully.")
             return redirect('accounts:profile')
     else:
         form = ProfileUpdateForm(instance=request.user)
-    return render(request, 'accounts/profile.html', {'form': form})
+    return render(request, 'accounts/profile.html', {
+        'form': form,
+        'profile_user': request.user,
+        'is_owner': True,
+    })
+
+
+@login_required
+def profile_edit_view(request):
+    """
+    Dedicated profile edit view. Strictly bounds edits to request.user
+    to enforce backend object authorization.
+    """
+    if request.method == 'POST':
+        form = ProfileUpdateForm(request.POST, request.FILES, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile updated successfully.")
+            return redirect('accounts:profile')
+    else:
+        form = ProfileUpdateForm(instance=request.user)
+    return render(request, 'accounts/profile_edit.html', {
+        'form': form,
+        'profile_user': request.user,
+    })
+
+
+@login_required
+def public_profile_view(request, pk):
+    """
+    Public profile view for any community user.
+    Read-only presentation with contextual links (Message, Services, Projects).
+    """
+    target_user = get_object_or_404(User, pk=pk)
+    is_owner = (request.user.pk == target_user.pk)
+
+    services = []
+    if target_user.is_student and hasattr(target_user, 'services'):
+        services = target_user.services.filter(is_active=True)
+
+    projects = []
+    if target_user.is_client and hasattr(target_user, 'projects'):
+        projects = target_user.projects.exclude(status='closed')
+
+    return render(request, 'accounts/public_profile.html', {
+        'profile_user': target_user,
+        'is_owner': is_owner,
+        'services': services,
+        'projects': projects,
+    })

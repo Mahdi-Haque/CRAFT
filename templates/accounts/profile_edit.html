@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% block title %}Edit Profile &middot; {{ profile_user.display_name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-3">
+    <div class="col-12 col-lg-8">
+        <div class="card p-4 p-md-5 shadow-sm">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div>
+                    <h3 class="fw-bold mb-1">Edit Profile</h3>
+                    <p class="text-muted small mb-0">Update your public campus information and credentials.</p>
+                </div>
+                <a href="{% url 'accounts:profile' %}" class="btn btn-sm btn-outline-secondary">
+                    &larr; Back to Profile
+                </a>
+            </div>
+
+            <form method="post" enctype="multipart/form-data" novalidate>
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger" role="alert">
+                        {% for error in form.non_field_errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- Profile Picture Section -->
+                <div class="mb-4 pb-3 border-bottom">
+                    <label class="form-label fw-semibold" for="{{ form.profile_picture.id_for_label }}">Profile Picture</label>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="cw-user-avatar" style="width: 64px; height: 64px; font-size: 1.75rem;">
+                            {% if profile_user.profile_picture %}
+                                <img src="{{ profile_user.profile_picture.url }}" alt="{{ profile_user.username }}">
+                            {% else %}
+                                {{ profile_user.username|make_list|first|upper }}
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            {{ form.profile_picture }}
+                            <div class="form-text small">Upload JPG, PNG, or WEBP (Max 3MB). Square aspect ratio recommended.</div>
+                            {% if form.profile_picture.errors %}
+                                <div class="text-danger small mt-1">{{ form.profile_picture.errors|striptags }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Basic Details -->
+                <div class="row g-3 mb-3">
+                    <div class="col-sm-6">
+                        <label class="form-label" for="{{ form.first_name.id_for_label }}">First Name</label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}
+                            <div class="text-danger small mt-1">{{ form.first_name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="{{ form.last_name.id_for_label }}">Last Name</label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}
+                            <div class="text-danger small mt-1">{{ form.last_name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.email.id_for_label }}">Email Address</label>
+                    {{ form.email }}
+                    {% if profile_user.is_student %}
+                        <div class="form-text small">Must be your registered RUET student email (XXXXXXX@student.ruet.ac.bd).</div>
+                    {% endif %}
+                    {% if form.email.errors %}
+                        <div class="text-danger small mt-1">{{ form.email.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Academic Details for Students -->
+                {% if profile_user.is_student or profile_user.is_admin_role %}
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-8">
+                            <label class="form-label" for="{{ form.department.id_for_label }}">Academic Department / Series</label>
+                            {{ form.department }}
+                            <div class="form-text small">e.g., Computer Science & Engineering, EEE, ME, etc.</div>
+                            {% if form.department.errors %}
+                                <div class="text-danger small mt-1">{{ form.department.errors|striptags }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label" for="{{ form.student_id.id_for_label }}">Student Roll / ID</label>
+                            {{ form.student_id }}
+                            <div class="form-text small">e.g., 1903123</div>
+                            {% if form.student_id.errors %}
+                                <div class="text-danger small mt-1">{{ form.student_id.errors|striptags }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+
+                <!-- Organization Details for Clients -->
+                {% if profile_user.is_client or profile_user.is_admin_role %}
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            <label class="form-label" for="{{ form.company_name.id_for_label }}">Organization / Club / Lab</label>
+                            {{ form.company_name }}
+                            {% if form.company_name.errors %}
+                                <div class="text-danger small mt-1">{{ form.company_name.errors|striptags }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="{{ form.website_url.id_for_label }}">Website URL</label>
+                            {{ form.website_url }}
+                            {% if form.website_url.errors %}
+                                <div class="text-danger small mt-1">{{ form.website_url.errors|striptags }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.bio.id_for_label }}">About / Bio</label>
+                    {{ form.bio }}
+                    <div class="form-text">Briefly introduce your campus background, interests, and expertise.</div>
+                    {% if form.bio.errors %}
+                        <div class="text-danger small mt-1">{{ form.bio.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                {% if form.skills %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.skills.id_for_label }}">Skills (Comma-separated)</label>
+                        {{ form.skills }}
+                        <div class="form-text">e.g., Python, C++, PCB Design, UI/UX, Video Editing, LaTeX.</div>
+                        {% if form.skills.errors %}
+                            <div class="text-danger small mt-1">{{ form.skills.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+                <!-- Portfolio & Social Links -->
+                <div class="row g-3 mb-4">
+                    {% if form.portfolio_url %}
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ form.portfolio_url.id_for_label }}">Portfolio URL</label>
+                            {{ form.portfolio_url }}
+                            {% if form.portfolio_url.errors %}
+                                <div class="text-danger small mt-1">{{ form.portfolio_url.errors|striptags }}</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    {% if form.github_url %}
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ form.github_url.id_for_label }}">GitHub Profile</label>
+                            {{ form.github_url }}
+                            {% if form.github_url.errors %}
+                                <div class="text-danger small mt-1">{{ form.github_url.errors|striptags }}</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    {% if form.linkedin_url %}
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ form.linkedin_url.id_for_label }}">LinkedIn Profile</label>
+                            {{ form.linkedin_url }}
+                            {% if form.linkedin_url.errors %}
+                                <div class="text-danger small mt-1">{{ form.linkedin_url.errors|striptags }}</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between pt-3 border-top">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

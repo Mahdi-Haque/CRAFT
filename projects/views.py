@@ -20,11 +20,11 @@ SORT_OPTIONS = [
 ]
 
 SORT_ORDERING = {
-    'newest': ('-created_at',),
-    'oldest': ('created_at',),
-    'budget_high': ('-budget', '-created_at'),
-    'budget_low': ('budget', '-created_at'),
-    'deadline': (F('deadline').asc(nulls_last=True), '-created_at'),
+    'newest': ('-created_at', '-id'),
+    'oldest': ('created_at', 'id'),
+    'budget_high': ('-budget', '-created_at', '-id'),
+    'budget_low': ('budget', '-created_at', '-id'),
+    'deadline': (F('deadline').asc(nulls_last=True), '-created_at', '-id'),
 }
 
 
