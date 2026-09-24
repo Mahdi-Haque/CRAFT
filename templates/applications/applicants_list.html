@@ -44,11 +44,19 @@
                         <tr>
                             <td>
                                 <div class="d-flex align-items-center gap-2">
-                                    <div class="cw-user-avatar" style="width: 38px; height: 38px; font-size: 0.95rem;">
-                                        {{ app.student.username|make_list|first|upper }}
-                                    </div>
+                                    <a href="{% url 'accounts:public_profile' app.student.pk %}" class="text-decoration-none">
+                                        <div class="cw-user-avatar" style="width: 38px; height: 38px; font-size: 0.95rem;">
+                                            {% if app.student.profile_picture %}
+                                                <img src="{{ app.student.profile_picture.url }}" alt="{{ app.student.display_name }}">
+                                            {% else %}
+                                                {{ app.student.username|make_list|first|upper }}
+                                            {% endif %}
+                                        </div>
+                                    </a>
                                     <div>
-                                        <div class="fw-bold text-dark">{{ app.student.get_full_name|default:app.student.username }}</div>
+                                        <a href="{% url 'accounts:public_profile' app.student.pk %}" class="fw-bold text-dark text-decoration-none">
+                                            {{ app.student.display_name }}
+                                        </a>
                                         <div class="text-muted small">{{ app.student.email }}</div>
                                     </div>
                                 </div>

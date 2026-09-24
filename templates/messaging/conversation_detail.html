@@ -13,11 +13,21 @@
                     &larr; Back
                 </a>
                 <div class="d-flex align-items-center gap-2">
-                    <div class="cw-user-avatar" style="width: 40px; height: 40px; font-size: 1rem;">
-                        {{ other_user.username|make_list|first|upper }}
-                    </div>
+                    <a href="{% url 'accounts:public_profile' other_user.pk %}" class="text-decoration-none">
+                        <div class="cw-user-avatar" style="width: 40px; height: 40px; font-size: 1rem;">
+                            {% if other_user.profile_picture %}
+                                <img src="{{ other_user.profile_picture.url }}" alt="{{ other_user.display_name }}">
+                            {% else %}
+                                {{ other_user.username|make_list|first|upper }}
+                            {% endif %}
+                        </div>
+                    </a>
                     <div>
-                        <h5 class="mb-0 fw-bold">{{ other_user.get_full_name|default:other_user.username }}</h5>
+                        <h5 class="mb-0 fw-bold">
+                            <a href="{% url 'accounts:public_profile' other_user.pk %}" class="text-dark text-decoration-none">
+                                {{ other_user.display_name }}
+                            </a>
+                        </h5>
                         <div class="d-flex align-items-center gap-1">
                             <span class="cw-role-pill cw-role-{{ other_user.role }}">{{ other_user.role|capfirst }}</span>
                             <span class="text-muted small">&bull; {{ other_user.email }}</span>
@@ -25,8 +35,11 @@
                     </div>
                 </div>
             </div>
-            <div>
-                <span class="text-muted small">Conversation #{{ conversation.pk }}</span>
+            <div class="d-flex align-items-center gap-2">
+                <a href="{% url 'accounts:public_profile' other_user.pk %}" class="btn btn-outline-primary btn-sm" title="View public profile">
+                    👁️ View Profile
+                </a>
+                <span class="text-muted small">#{{ conversation.pk }}</span>
             </div>
         </div>
 

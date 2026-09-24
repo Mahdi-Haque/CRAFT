@@ -69,14 +69,117 @@ class RegisterForm(UserCreationForm):
 
 
 class ProfileUpdateForm(forms.ModelForm):
+    MAX_UPLOAD_SIZE = 3 * 1024 * 1024  # 3 MB
+    ALLOWED_IMAGE_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.webp')
+
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email', 'bio', 'skills', 'company_name')
+        fields = (
+            'first_name',
+            'last_name',
+            'email',
+            'department',
+            'student_id',
+            'bio',
+            'skills',
+            'company_name',
+            'website_url',
+            'portfolio_url',
+            'github_url',
+            'linkedin_url',
+            'profile_picture',
+        )
         widgets = {
             'bio': forms.Textarea(attrs={'rows': 4}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
-            field.widget.attrs.setdefault('class', 'form-control')
+        for name, field in self.fields.items():
+            if name == 'profile_picture':
+                field.widget.attrs.setdefault('class', 'form-control')
+                field.widget.attrs.setdefault('accept', 'image/png, image/jpeg, image/webp')
+            else:
+                field.widget.attrs.setdefault('class', 'form-control')
+
+        user = self.instance
+        if user and user.pk:
+            if user.is_client:
+                # Remove student-specific fields
+                self.fields.pop('skills', None)
+                self.fields.pop('student_id', None)
+            elif user.is_student:
+                # Remove client-specific fields
+                self.fields.pop('company_name', None)
+                self.fields.pop('website_url', None)
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email', '').strip().lower()
+        user = self.instance
+        if user and user.pk and user.is_student:
+            if email != (user.email or '').strip().lower():
+                if not email or not re.fullmatch(r'[0-9]{7}@student\.ruet\.ac\.bd', email, re.IGNORECASE):
+                    raise ValidationError(
+                        'Student accounts require a valid RUET student email in the '
+                        'format XXXXXXX@student.ruet.ac.bd.'
+                    )
+        # Check uniqueness against other users
+        if email and User.objects.exclude(pk=user.pk).filter(email__iexact=email).exists():
+            raise ValidationError('A user with this email address already exists.')
+        return email
+
+    def clean_profile_picture(self):
+        picture = self.cleaned_data.get('profile_picture')
+        if picture and hasattr(picture, 'size'):
+            if picture.size > self.MAX_UPLOAD_SIZE:
+                raise ValidationError("Profile picture file size cannot exceed 3MB.")
+            name = picture.name.lower()
+            if not any(name.endswith(ext) for ext in self.ALLOWED_IMAGE_EXTENSIONS):
+                raise ValidationError(
+                    f"Unsupported image format. Allowed formats: {', '.join(self.ALLOWED_IMAGE_EXTENSIONS)}."
+                )
+        return picture
+
+
+class ReviewForm(forms.ModelForm):
+    RATING_CHOICES = (
+        (5, '★★★★★ (5 Stars - Exceptional)'),
+        (4, '★★★★☆ (4 Stars - Very Good)'),
+        (3, '★★★☆☆ (3 Stars - Satisfactory)'),
+        (2, '★★☆☆☆ (2 Stars - Needs Improvement)'),
+        (1, '★☆☆☆☆ (1 Star - Poor)'),
+    )
+
+    rating = forms.ChoiceField(
+        choices=RATING_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        help_text="Rate your collaboration experience from 1 to 5 stars."
+    )
+
+    class Meta:
+        from .models import Review
+        model = Review
+        fields = ('rating', 'comment')
+        widgets = {
+            'comment': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': 'Share your experience collaborating on this project, work quality, communication, and professionalism...'
+            }),
+        }
+
+    def clean_rating(self):
+        val = self.cleaned_data.get('rating')
+        try:
+            rating = int(val)
+        except (ValueError, TypeError):
+            raise ValidationError("Please provide a valid numeric rating between 1 and 5.")
+        if rating < 1 or rating > 5:
+            raise ValidationError("Rating must be between 1 and 5 stars.")
+        return rating
+
+    def clean_comment(self):
+        comment = self.cleaned_data.get('comment', '').strip()
+        if not comment:
+            raise ValidationError("Review comment cannot be blank.")
+        return comment

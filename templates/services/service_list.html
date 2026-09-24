@@ -101,11 +101,17 @@
 
                 <!-- Creator Info -->
                 <div class="d-flex align-items-center gap-2 mb-3">
-                    <div class="cw-user-avatar" style="width: 28px; height: 28px; font-size: 0.75rem;">
-                        {{ service.creator.username|make_list|first|upper }}
-                    </div>
+                    <a href="{% url 'accounts:public_profile' service.creator.pk %}" class="text-decoration-none">
+                        <div class="cw-user-avatar" style="width: 28px; height: 28px; font-size: 0.75rem;">
+                            {% if service.creator.profile_picture %}
+                                <img src="{{ service.creator.profile_picture.url }}" alt="{{ service.creator.display_name }}">
+                            {% else %}
+                                {{ service.creator.username|make_list|first|upper }}
+                            {% endif %}
+                        </div>
+                    </a>
                     <span class="text-muted small">
-                        By <strong class="text-dark">{{ service.creator.get_full_name|default:service.creator.username }}</strong>
+                        By <a href="{% url 'accounts:public_profile' service.creator.pk %}" class="fw-bold text-dark text-decoration-none">{{ service.creator.display_name }}</a>
                     </span>
                 </div>
 
