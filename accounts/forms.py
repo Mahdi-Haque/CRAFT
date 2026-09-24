@@ -139,3 +139,47 @@ class ProfileUpdateForm(forms.ModelForm):
                     f"Unsupported image format. Allowed formats: {', '.join(self.ALLOWED_IMAGE_EXTENSIONS)}."
                 )
         return picture
+
+
+class ReviewForm(forms.ModelForm):
+    RATING_CHOICES = (
+        (5, '★★★★★ (5 Stars - Exceptional)'),
+        (4, '★★★★☆ (4 Stars - Very Good)'),
+        (3, '★★★☆☆ (3 Stars - Satisfactory)'),
+        (2, '★★☆☆☆ (2 Stars - Needs Improvement)'),
+        (1, '★☆☆☆☆ (1 Star - Poor)'),
+    )
+
+    rating = forms.ChoiceField(
+        choices=RATING_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        help_text="Rate your collaboration experience from 1 to 5 stars."
+    )
+
+    class Meta:
+        from .models import Review
+        model = Review
+        fields = ('rating', 'comment')
+        widgets = {
+            'comment': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': 'Share your experience collaborating on this project, work quality, communication, and professionalism...'
+            }),
+        }
+
+    def clean_rating(self):
+        val = self.cleaned_data.get('rating')
+        try:
+            rating = int(val)
+        except (ValueError, TypeError):
+            raise ValidationError("Please provide a valid numeric rating between 1 and 5.")
+        if rating < 1 or rating > 5:
+            raise ValidationError("Rating must be between 1 and 5 stars.")
+        return rating
+
+    def clean_comment(self):
+        comment = self.cleaned_data.get('comment', '').strip()
+        if not comment:
+            raise ValidationError("Review comment cannot be blank.")
+        return comment

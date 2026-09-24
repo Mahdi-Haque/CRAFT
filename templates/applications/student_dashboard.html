@@ -206,9 +206,9 @@
                             {% endif %}
                         </td>
                         <td>
-                            <span class="text-secondary small fw-semibold">
-                                {{ app.project.client.company_name|default:app.project.client.username }}
-                            </span>
+                            <a href="{% url 'accounts:public_profile' app.project.client.pk %}" class="text-secondary small fw-semibold text-decoration-none">
+                                {{ app.project.client.company_name|default:app.project.client.display_name }}
+                            </a>
                         </td>
                         <td>
                             {% if app.project.status == 'open' %}
@@ -276,9 +276,9 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="text-secondary small fw-semibold">
-                                    {{ app.project.client.company_name|default:app.project.client.username }}
-                                </span>
+                                <a href="{% url 'accounts:public_profile' app.project.client.pk %}" class="text-secondary small fw-semibold text-decoration-none">
+                                    {{ app.project.client.company_name|default:app.project.client.display_name }}
+                                </a>
                             </td>
                             <td>
                                 {% if app.project.status == 'open' %}

@@ -34,6 +34,18 @@
                                 🏢 {{ profile_user.company_name }}
                             </div>
                         {% endif %}
+                        <div class="d-flex align-items-center gap-2 mt-1">
+                            {% if profile_user.review_count %}
+                                <span class="badge bg-warning text-dark fw-bold">
+                                    ★ {{ profile_user.average_rating|floatformat:1 }}
+                                </span>
+                                <span class="text-muted small">({{ profile_user.review_count }} review{{ profile_user.review_count|pluralize }})</span>
+                            {% else %}
+                                <span class="badge bg-light text-muted border small">
+                                    ★ No reviews yet
+                                </span>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
 
@@ -96,6 +108,75 @@
                             <span class="cw-skill-chip">{{ skill }}</span>
                         {% endfor %}
                     </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Reviews & Ratings Card -->
+        <div class="card p-4 p-md-5 mb-4 shadow-sm border-0" id="reviews">
+            <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2 mb-3">
+                <div>
+                    <h4 class="fw-bold mb-1">Reviews & Ratings</h4>
+                    <p class="text-muted small mb-0">Feedback and performance reviews from completed campus collaborations.</p>
+                </div>
+                {% if profile_user.review_count %}
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fs-4 fw-bold text-warning">★</span>
+                        <span class="fs-4 fw-bold text-dark">{{ profile_user.average_rating|floatformat:1 }}</span>
+                        <span class="text-muted small">/ 5.0 ({{ profile_user.review_count }} review{{ profile_user.review_count|pluralize }})</span>
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if reviews %}
+                <div class="d-flex flex-column gap-3">
+                    {% for review in reviews %}
+                        <div class="p-3 rounded-3 border bg-light">
+                            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-2 pb-2 border-bottom">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="cw-user-avatar" style="width: 36px; height: 36px; font-size: 0.95rem;">
+                                        {% if review.reviewer.profile_picture %}
+                                            <img src="{{ review.reviewer.profile_picture.url }}" alt="{{ review.reviewer.display_name }}">
+                                        {% else %}
+                                            {{ review.reviewer.username|make_list|first|upper }}
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <a href="{% url 'accounts:public_profile' review.reviewer.pk %}" class="fw-bold text-dark text-decoration-none">
+                                            {{ review.reviewer.company_name|default:review.reviewer.display_name }}
+                                        </a>
+                                        <span class="cw-role-pill cw-role-{{ review.reviewer.role }} ms-1" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;">
+                                            {{ review.reviewer.role }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="text-warning fw-bold">
+                                        {% for _ in "x"|rjust:review.rating %}★{% endfor %}
+                                    </span>
+                                    <span class="text-muted small">({{ review.rating }}/5)</span>
+                                    <span class="text-muted small">&middot; {{ review.created_at|date:"M d, Y" }}</span>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <span class="text-muted small">Project:</span>
+                                <a href="{% url 'projects:project_detail' review.project.pk %}" class="fw-semibold text-primary text-decoration-none small">
+                                    {{ review.project.title }}
+                                </a>
+                            </div>
+                            <p class="text-secondary small mb-0" style="white-space: pre-line; line-height: 1.5;">
+                                {{ review.comment }}
+                            </p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-4 bg-light rounded-3">
+                    <div class="cw-empty-icon mb-1" style="font-size: 1.75rem;">⭐</div>
+                    <div class="fw-semibold text-dark small mb-1">No reviews received yet</div>
+                    <p class="text-muted small mb-0" style="max-width: 480px; margin: 0 auto;">
+                        Verified reviews are published here when project partners submit feedback following completed collaborations.
+                    </p>
                 </div>
             {% endif %}
         </div>

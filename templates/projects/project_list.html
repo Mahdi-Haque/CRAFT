@@ -73,7 +73,7 @@
                 </h5>
 
                 <div class="text-muted small mb-2">
-                    Posted by <strong class="text-dark">{{ project.client.company_name|default:project.client.username }}</strong>
+                    Posted by <a href="{% url 'accounts:public_profile' project.client.pk %}" class="fw-bold text-dark text-decoration-none">{{ project.client.company_name|default:project.client.display_name }}</a>
                 </div>
 
                 <p class="cw-item-desc">

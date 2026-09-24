@@ -123,9 +123,14 @@
                 <a href="{% url 'applications:applicants_list' project.pk %}" class="btn btn-primary w-100 py-2 mb-2">
                     👥 Manage Received Applications ({{ project.applicant_count }}) &rarr;
                 </a>
-                <a href="{% url 'projects:project_workspace' project.pk %}" class="btn btn-outline-primary w-100 py-2">
+                <a href="{% url 'projects:project_workspace' project.pk %}" class="btn btn-outline-primary w-100 py-2 mb-2">
                     🚀 Enter Team Workspace &rarr;
                 </a>
+                {% if project.status == 'completed' %}
+                    <a href="{% url 'accounts:submit_review_project' project.pk %}" class="btn btn-warning w-100 py-2">
+                        ⭐ Review Project Team &rarr;
+                    </a>
+                {% endif %}
             {% elif user_application %}
                 <div class="p-3 bg-light rounded-3 border">
                     <div class="d-flex align-items-center justify-content-between mb-2">
@@ -148,6 +153,11 @@
                         <a href="{% url 'projects:project_workspace' project.pk %}" class="btn btn-success btn-sm w-100">
                             🚀 Enter Team Workspace &rarr;
                         </a>
+                        {% if project.status == 'completed' %}
+                            <a href="{% url 'accounts:submit_review' project.pk project.client.pk %}" class="btn btn-warning btn-sm w-100 mt-2">
+                                ⭐ Review Client ({{ project.client.display_name }})
+                            </a>
+                        {% endif %}
                     {% endif %}
                 </div>
             {% elif user.is_student %}
@@ -184,17 +194,30 @@
         <div class="card p-4 shadow-sm">
             <h6 class="fw-bold mb-3">About the Poster</h6>
             <div class="d-flex align-items-center gap-3">
-                <div class="cw-user-avatar" style="width: 44px; height: 44px; font-size: 1.1rem;">
-                    {{ project.client.username|make_list|first|upper }}
-                </div>
+                <a href="{% url 'accounts:public_profile' project.client.pk %}" class="text-decoration-none">
+                    <div class="cw-user-avatar" style="width: 44px; height: 44px; font-size: 1.1rem;">
+                        {% if project.client.profile_picture %}
+                            <img src="{{ project.client.profile_picture.url }}" alt="{{ project.client.display_name }}">
+                        {% else %}
+                            {{ project.client.username|make_list|first|upper }}
+                        {% endif %}
+                    </div>
+                </a>
                 <div>
-                    <div class="fw-bold text-dark">{{ project.client.company_name|default:project.client.username }}</div>
+                    <a href="{% url 'accounts:public_profile' project.client.pk %}" class="fw-bold text-dark text-decoration-none">
+                        {{ project.client.company_name|default:project.client.display_name }}
+                    </a>
                     <div class="text-muted small">{{ project.client.role|capfirst }} on CRAFT</div>
                 </div>
             </div>
             {% if project.client.bio %}
                 <p class="text-muted small mt-3 mb-0">{{ project.client.bio|truncatewords:25 }}</p>
             {% endif %}
+            <div class="mt-3 pt-3 border-top">
+                <a href="{% url 'accounts:public_profile' project.client.pk %}" class="btn btn-outline-secondary btn-sm w-100">
+                    👁️ View Client Profile &rarr;
+                </a>
+            </div>
         </div>
     </div>
 </div>

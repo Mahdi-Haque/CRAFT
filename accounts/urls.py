@@ -13,4 +13,6 @@ urlpatterns = [
     path('profile/edit/', views.profile_edit_view, name='profile_edit'),
     path('profile/<int:pk>/', views.public_profile_view, name='profile_detail'),
     path('users/<int:pk>/', views.public_profile_view, name='public_profile'),
+    path('projects/<int:project_pk>/review/', views.submit_review_view, name='submit_review_project'),
+    path('projects/<int:project_pk>/review/<int:user_pk>/', views.submit_review_view, name='submit_review'),
 ]
