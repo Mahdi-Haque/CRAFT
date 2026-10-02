@@ -49,6 +49,9 @@
                         <a class="cw-nav-link" href="{% url 'services:service_list' %}">Services Marketplace</a>
                     </li>
                     <li>
+                        <a class="cw-nav-link" href="{% url 'accounts:talent_directory' %}">Talent Directory</a>
+                    </li>
+                    <li>
                         <a class="cw-nav-link d-inline-flex align-items-center gap-1" href="{% url 'messaging:conversation_list' %}">
                             <span>Messages</span>
                             {% if unread_message_count %}
@@ -79,6 +82,9 @@
                     </li>
                     <li>
                         <a class="cw-nav-link" href="{% url 'services:service_list' %}">Explore Services</a>
+                    </li>
+                    <li>
+                        <a class="cw-nav-link" href="{% url 'accounts:talent_directory' %}">Find Talent</a>
                     </li>
                 {% endif %}
             </ul>

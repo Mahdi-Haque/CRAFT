@@ -1,14 +1,20 @@
+from django.apps import apps
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db import IntegrityError
+from django.db.models import Avg, Count, Q
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
+
+from apps.notifications.models import Notification
+from apps.notifications.services import create_notification
 
 from .forms import RegisterForm, ProfileUpdateForm, StyledAuthenticationForm, ReviewForm
 from .models import Review
-from projects.models import Project
-from applications.models import Application
 
 User = get_user_model()
 
@@ -126,6 +132,78 @@ def public_profile_view(request, pk):
     })
 
 
+def talent_directory_view(request):
+    """
+    Talent Discovery Directory:
+    Allows clients, students, and campus visitors to explore RUET student talents.
+    Supports search (name, username, skills, bio, department), department filtering,
+    and skill filtering. Paginated with query parameter retention.
+    Uses queryset annotations for rating and review count to avoid N+1 queries.
+    """
+    students_qs = User.objects.filter(
+        role=User.Role.STUDENT,
+        is_active=True
+    ).annotate(
+        annotated_rating=Avg('reviews_received__rating'),
+        annotated_review_count=Count('reviews_received', distinct=True)
+    )
+
+    query = request.GET.get('q', '').strip()
+    if query:
+        students_qs = students_qs.filter(
+            Q(username__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(skills__icontains=query) |
+            Q(bio__icontains=query) |
+            Q(department__icontains=query)
+        )
+
+    department = request.GET.get('department', '').strip()
+    if department:
+        students_qs = students_qs.filter(department__iexact=department)
+
+    skill = request.GET.get('skill', '').strip()
+    if skill:
+        students_qs = students_qs.filter(skills__icontains=skill)
+
+    students_qs = students_qs.order_by('-date_joined', '-id')
+
+    # Available departments list for filter dropdown (from active students)
+    departments = (
+        User.objects.filter(role=User.Role.STUDENT, is_active=True)
+        .exclude(department='')
+        .values_list('department', flat=True)
+        .distinct()
+        .order_by('department')
+    )
+
+    # 9 items per page (3x3 grid)
+    paginator = Paginator(students_qs, 9)
+    page_number = request.GET.get('page')
+    try:
+        page_obj = paginator.get_page(page_number)
+    except (EmptyPage, PageNotAnInteger):
+        page_obj = paginator.get_page(1)
+
+    # Build query string preserving active filters for pagination links
+    query_dict = request.GET.copy()
+    if 'page' in query_dict:
+        del query_dict['page']
+    query_params = query_dict.urlencode()
+
+    return render(request, 'accounts/talent_directory.html', {
+        'page_obj': page_obj,
+        'students': page_obj.object_list,
+        'departments': departments,
+        'selected_department': department,
+        'selected_skill': skill,
+        'query': query,
+        'query_params': query_params,
+        'total_count': paginator.count,
+    })
+
+
 @login_required
 def submit_review_view(request, project_pk, user_pk=None):
     """
@@ -133,12 +211,13 @@ def submit_review_view(request, project_pk, user_pk=None):
     - Client reviews an accepted student.
     - Accepted student reviews the project client.
     Enforces strict server-side validation against self-reviews, incomplete projects,
-    non-participants, student-student reviews, and duplicate reviews.
+    non-participants, student-student reviews, duplicate reviews, and concurrent submissions.
     """
+    Project = apps.get_model('projects', 'Project')
     project = get_object_or_404(Project.objects.select_related('client'), pk=project_pk)
 
     # 1. Project status check: reviews can only be submitted for completed projects
-    if project.status != Project.Status.COMPLETED:
+    if project.status != 'completed':
         messages.error(request, f"Reviews can only be submitted for completed projects (current status: {project.get_status_display()}).")
         return redirect('projects:project_detail', pk=project.pk)
 
@@ -149,7 +228,7 @@ def submit_review_view(request, project_pk, user_pk=None):
         elif project.client_id == request.user.id:
             accepted_students = User.objects.filter(
                 applications__project=project,
-                applications__status=Application.Status.ACCEPTED
+                applications__status='accepted'
             ).distinct()
             if accepted_students.count() == 1:
                 reviewed_user = accepted_students.first()
@@ -172,7 +251,7 @@ def submit_review_view(request, project_pk, user_pk=None):
     # 4. Check reviewer and reviewed_user eligibility
     is_client = (project.client_id == request.user.id)
     is_student_accepted = (
-        project.applications.filter(student=request.user, status=Application.Status.ACCEPTED).exists() or
+        project.applications.filter(student=request.user, status='accepted').exists() or
         (hasattr(project, 'team') and project.team.members.filter(id=request.user.id).exists())
     )
 
@@ -182,7 +261,7 @@ def submit_review_view(request, project_pk, user_pk=None):
 
     if is_client:
         target_is_accepted_student = (
-            project.applications.filter(student=reviewed_user, status=Application.Status.ACCEPTED).exists() or
+            project.applications.filter(student=reviewed_user, status='accepted').exists() or
             (hasattr(project, 'team') and project.team.members.filter(id=reviewed_user.id).exists())
         )
         if not target_is_accepted_student:
@@ -214,10 +293,25 @@ def submit_review_view(request, project_pk, user_pk=None):
             try:
                 review.full_clean()
                 review.save()
-                messages.success(request, f"Your review for {reviewed_user.display_name} has been published successfully.")
-                return redirect('accounts:public_profile', pk=reviewed_user.pk)
             except ValidationError as e:
                 form.add_error(None, e)
+            except IntegrityError:
+                messages.info(request, f"You have already reviewed {reviewed_user.display_name} for this project.")
+                return redirect('accounts:public_profile', pk=reviewed_user.pk)
+            else:
+                # Successfully saved review - trigger centralized notification
+                try:
+                    create_notification(
+                        recipient=reviewed_user,
+                        notification_type=Notification.NotificationType.PROJECT_COMPLETED,
+                        title=f"New Review ({review.rating}★) Received",
+                        message=f"{request.user.display_name} left you a {review.rating}-star review for project '{project.title}'.",
+                        link=reverse('accounts:public_profile', kwargs={'pk': reviewed_user.pk}),
+                    )
+                except Exception:
+                    pass
+                messages.success(request, f"Your review for {reviewed_user.display_name} has been published successfully.")
+                return redirect('accounts:public_profile', pk=reviewed_user.pk)
     else:
         form = ReviewForm()
 
