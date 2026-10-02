@@ -42,7 +42,7 @@ class RegisterForm(UserCreationForm):
         email = cleaned_data.get('email')
         if role == User.Role.CLIENT and not company_name:
             raise ValidationError({'company_name': 'Company name is required for client accounts.'})
-        if role == User.Role.STUDENT and (
+        if role == User.Role.STUDENT and 'email' not in self.errors and (
             not email
             or not re.fullmatch(r'[0-9]{7}@student\.ruet\.ac\.bd', email, re.IGNORECASE)
         ):
@@ -55,7 +55,10 @@ class RegisterForm(UserCreationForm):
         return cleaned_data
 
     def clean_email(self):
-        return self.cleaned_data['email'].strip().lower()
+        email = self.cleaned_data['email'].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise ValidationError('A user with this email address already exists.')
+        return email
 
     def save(self, commit=True):
         user = super().save(commit=False)

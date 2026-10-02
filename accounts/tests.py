@@ -11,6 +11,8 @@ from projects.models import Project, ProjectTeam, ProjectMembership
 from applications.models import Application
 from services.models import Service
 from apps.messaging.models import Conversation
+from apps.notifications.models import Notification
+from django.contrib import admin
 
 User = get_user_model()
 
@@ -152,6 +154,40 @@ class AccountsTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertFormError(response.context['form'], 'company_name', 'Company name is required for client accounts.')
+
+    def test_registration_rejects_duplicate_email(self):
+        # Register a student with a valid RUET email first
+        User.objects.create_user(
+            username='existing_student',
+            email='1903123@student.ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT
+        )
+        response = self.client.post(reverse('accounts:register'), {
+            'username': 'anotherstudent',
+            'email': '1903123@student.ruet.ac.bd',
+            'role': 'student',
+            'skills': '',
+            'company_name': '',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response.context['form'], 'email', 'A user with this email address already exists.')
+
+    def test_registration_rejects_duplicate_email_case_insensitively(self):
+        # self.client_user has email client@ruet.ac.bd
+        response = self.client.post(reverse('accounts:register'), {
+            'username': 'casedclient',
+            'email': 'CLIENT@RUET.AC.BD',
+            'role': 'client',
+            'skills': '',
+            'company_name': 'New Enterprise',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response.context['form'], 'email', 'A user with this email address already exists.')
 
     def test_dashboard_redirects_by_role(self):
         # Student -> student dashboard
@@ -852,6 +888,38 @@ class ReviewUIAndSubmissionIntegrationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.student_user.display_name)
 
+    def test_review_submission_creates_notification_for_reviewed_user(self):
+        self.client.login(username='labclient', password='Password123!')
+        url = reverse('accounts:submit_review', kwargs={
+            'project_pk': self.completed_project.pk,
+            'user_pk': self.student_user.pk
+        })
+        self.student_user.notifications.all().delete()
+        response = self.client.post(url, {
+            'rating': '5',
+            'comment': 'Outstanding work on hardware and firmware.'
+        }, follow=True)
+        self.assertEqual(response.status_code, 200)
+        notification = self.student_user.notifications.first()
+        self.assertIsNotNone(notification)
+        self.assertIn('New Review', notification.title)
+        self.assertIn(self.client_user.display_name, notification.message)
+
+    def test_concurrent_duplicate_review_handled_gracefully_without_500(self):
+        self.client.login(username='labclient', password='Password123!')
+        url = reverse('accounts:submit_review', kwargs={
+            'project_pk': self.completed_project.pk,
+            'user_pk': self.student_user.pk
+        })
+        from unittest.mock import patch
+        with patch.object(Review, 'save', side_effect=IntegrityError("UNIQUE constraint failed")):
+            response = self.client.post(url, {
+                'rating': '5',
+                'comment': 'Duplicate race test.'
+            }, follow=True)
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, 'You have already reviewed')
+
 
 class CrossAppPublicProfileIntegrationTests(TestCase):
     def setUp(self):
@@ -972,3 +1040,214 @@ class CrossAppPublicProfileIntegrationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         client_profile_url = reverse('accounts:public_profile', kwargs={'pk': self.client_user.pk})
         self.assertContains(response, client_profile_url)
+
+
+class TalentDirectoryTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.student1 = User.objects.create_user(
+            username='talented_student1',
+            email='1903010@student.ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT,
+            first_name='Anika',
+            last_name='Tabassum',
+            department='CSE',
+            student_id='1903010',
+            skills='Python, Machine Learning, PyTorch, Django',
+            bio='Passionate about AI applications in healthcare and NLP research.'
+        )
+        self.student2 = User.objects.create_user(
+            username='talented_student2',
+            email='1904020@student.ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT,
+            first_name='Tanvir',
+            last_name='Ahmed',
+            department='EEE',
+            student_id='1904020',
+            skills='Embedded C, PCB Design, Arduino, Robotics',
+            bio='Circuit designer and robotics enthusiast.'
+        )
+        self.client_user = User.objects.create_user(
+            username='industry_client',
+            email='client@techcorp.com',
+            password='Password123!',
+            role=User.Role.CLIENT,
+            company_name='TechCorp Bangladesh'
+        )
+        self.inactive_student = User.objects.create_user(
+            username='inactive_student',
+            email='1903099@student.ruet.ac.bd',
+            password='Password123!',
+            role=User.Role.STUDENT,
+            is_active=False
+        )
+
+    def test_talent_directory_page_loads_for_guest_and_authenticated(self):
+        # Guest visit
+        res_guest = self.client.get(reverse('accounts:talent_directory'))
+        self.assertEqual(res_guest.status_code, 200)
+        self.assertContains(res_guest, 'RUET Student Talent Directory')
+
+        # Authenticated visit
+        self.client.login(username='industry_client', password='Password123!')
+        res_auth = self.client.get(reverse('accounts:talent_directory'))
+        self.assertEqual(res_auth.status_code, 200)
+        self.assertContains(res_auth, 'RUET Student Talent Directory')
+
+    def test_talent_directory_only_shows_active_students(self):
+        res = self.client.get(reverse('accounts:talent_directory'))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Anika Tabassum')
+        self.assertContains(res, 'Tanvir Ahmed')
+        self.assertNotContains(res, 'industry_client')
+        self.assertNotContains(res, 'inactive_student')
+
+    def test_talent_directory_search_by_name_and_username(self):
+        # Search by first name
+        res = self.client.get(reverse('accounts:talent_directory'), {'q': 'Anika'})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Anika Tabassum')
+        self.assertNotContains(res, 'Tanvir Ahmed')
+
+        # Search by username
+        res2 = self.client.get(reverse('accounts:talent_directory'), {'q': 'talented_student2'})
+        self.assertEqual(res2.status_code, 200)
+        self.assertContains(res2, 'Tanvir Ahmed')
+        self.assertNotContains(res2, 'Anika Tabassum')
+
+        # Search non-matching term
+        res3 = self.client.get(reverse('accounts:talent_directory'), {'q': 'NonexistentHero999'})
+        self.assertEqual(res3.status_code, 200)
+        self.assertContains(res3, 'No Student Talents Found')
+
+    def test_talent_directory_search_by_skills(self):
+        res = self.client.get(reverse('accounts:talent_directory'), {'q': 'PyTorch'})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Anika Tabassum')
+        self.assertNotContains(res, 'Tanvir Ahmed')
+
+    def test_talent_directory_filter_by_department(self):
+        res_cse = self.client.get(reverse('accounts:talent_directory'), {'department': 'CSE'})
+        self.assertEqual(res_cse.status_code, 200)
+        self.assertContains(res_cse, 'Anika Tabassum')
+        self.assertNotContains(res_cse, 'Tanvir Ahmed')
+
+        res_eee = self.client.get(reverse('accounts:talent_directory'), {'department': 'EEE'})
+        self.assertEqual(res_eee.status_code, 200)
+        self.assertContains(res_eee, 'Tanvir Ahmed')
+        self.assertNotContains(res_eee, 'Anika Tabassum')
+
+    def test_talent_directory_filter_by_skill(self):
+        res = self.client.get(reverse('accounts:talent_directory'), {'skill': 'PCB Design'})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Tanvir Ahmed')
+        self.assertNotContains(res, 'Anika Tabassum')
+
+    def test_talent_directory_combined_filters(self):
+        # Matching combination
+        res = self.client.get(reverse('accounts:talent_directory'), {
+            'q': 'Anika',
+            'department': 'CSE',
+            'skill': 'Django'
+        })
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Anika Tabassum')
+
+        # Non-matching combination (wrong department)
+        res_mismatch = self.client.get(reverse('accounts:talent_directory'), {
+            'q': 'Anika',
+            'department': 'EEE',
+            'skill': 'Django'
+        })
+        self.assertEqual(res_mismatch.status_code, 200)
+        self.assertContains(res_mismatch, 'No Student Talents Found')
+
+    def test_talent_directory_pagination_and_query_param_preservation(self):
+        # Create 10 more students (12 total, pagination is 9 per page)
+        for i in range(10):
+            User.objects.create_user(
+                username=f'page_student_{i}',
+                email=f'1905{i:03d}@student.ruet.ac.bd',
+                password='Password123!',
+                role=User.Role.STUDENT,
+                department='CSE',
+                skills='Python, Testing'
+            )
+
+        res_page1 = self.client.get(reverse('accounts:talent_directory'), {'q': 'student', 'department': 'CSE'})
+        self.assertEqual(res_page1.status_code, 200)
+        self.assertContains(res_page1, 'page=2')
+        self.assertContains(res_page1, 'q=student')
+        self.assertContains(res_page1, 'department=CSE')
+
+        res_page2 = self.client.get(reverse('accounts:talent_directory'), {'q': 'student', 'department': 'CSE', 'page': 2})
+        self.assertEqual(res_page2.status_code, 200)
+        self.assertContains(res_page2, 'page=1')
+        self.assertContains(res_page2, 'q=student')
+        self.assertContains(res_page2, 'department=CSE')
+
+    def test_talent_directory_links_to_public_profile(self):
+        res = self.client.get(reverse('accounts:talent_directory'))
+        self.assertEqual(res.status_code, 200)
+        profile_url = reverse('accounts:public_profile', kwargs={'pk': self.student1.pk})
+        self.assertContains(res, profile_url)
+
+    def test_talent_directory_does_not_expose_private_information(self):
+        res = self.client.get(reverse('accounts:talent_directory'))
+        self.assertEqual(res.status_code, 200)
+        # Passwords / hashes must never be exposed
+        self.assertNotContains(res, 'pbkdf2_sha256')
+        self.assertNotContains(res, 'Password123!')
+        # Private emails should not be exposed on the public discovery card
+        self.assertNotContains(res, '1903010@student.ruet.ac.bd')
+        # Edit profile link should not be exposed
+        self.assertNotContains(res, reverse('accounts:profile_edit'))
+
+    def test_talent_directory_annotated_rating_and_review_count(self):
+        project = Project.objects.create(
+            client=self.client_user,
+            title='Autonomous Delivery System',
+            description='Test project description',
+            budget=250.00,
+            status=Project.Status.COMPLETED
+        )
+        Review.objects.create(
+            project=project,
+            reviewer=self.client_user,
+            reviewed_user=self.student1,
+            rating=5,
+            comment='Superb problem solving skills and code quality.'
+        )
+
+        res = self.client.get(reverse('accounts:talent_directory'))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, '5.0')
+        self.assertContains(res, '1 review')
+
+
+class AdminIntegrationTests(TestCase):
+    def test_review_model_is_registered_in_admin(self):
+        self.assertTrue(admin.site.is_registered(Review))
+        review_admin = admin.site._registry[Review]
+        self.assertIn('rating', review_admin.list_display)
+        self.assertIn('reviewer', review_admin.list_display)
+        self.assertIn('reviewed_user', review_admin.list_display)
+        self.assertIn('rating', review_admin.list_filter)
+
+    def test_custom_user_admin_fieldsets_contain_profile_fields(self):
+        self.assertTrue(admin.site.is_registered(User))
+        user_admin = admin.site._registry[User]
+        all_fieldsets_fields = []
+        for _, fieldset in user_admin.fieldsets:
+            all_fieldsets_fields.extend(fieldset.get('fields', ()))
+
+        self.assertIn('department', all_fieldsets_fields)
+        self.assertIn('student_id', all_fieldsets_fields)
+        self.assertIn('skills', all_fieldsets_fields)
+        self.assertIn('bio', all_fieldsets_fields)
+        self.assertIn('profile_picture', all_fieldsets_fields)
+        self.assertIn('portfolio_url', all_fieldsets_fields)
+        self.assertIn('github_url', all_fieldsets_fields)
+        self.assertIn('linkedin_url', all_fieldsets_fields)
