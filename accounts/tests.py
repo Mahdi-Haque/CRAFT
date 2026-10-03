@@ -900,10 +900,48 @@ class ReviewUIAndSubmissionIntegrationTests(TestCase):
             'comment': 'Outstanding work on hardware and firmware.'
         }, follow=True)
         self.assertEqual(response.status_code, 200)
+
+        # 1. Review is created
+        review = Review.objects.filter(
+            project=self.completed_project,
+            reviewer=self.client_user,
+            reviewed_user=self.student_user,
+        ).first()
+        self.assertIsNotNone(review)
+        self.assertEqual(review.rating, 5)
+        self.assertEqual(review.comment, 'Outstanding work on hardware and firmware.')
+
+        # 2. Notification is created for the reviewed user
         notification = self.student_user.notifications.first()
         self.assertIsNotNone(notification)
+        self.assertEqual(notification.recipient, self.student_user)
+
+        # 3. Notification title/message is appropriate
         self.assertIn('New Review', notification.title)
+        self.assertIn('(5★)', notification.title)
         self.assertIn(self.client_user.display_name, notification.message)
+        self.assertIn(self.completed_project.title, notification.message)
+        self.assertEqual(notification.link, reverse('accounts:public_profile', kwargs={'pk': self.student_user.pk}))
+
+        # 4. Notification type is the correct review-related type
+        self.assertEqual(notification.notification_type, Notification.NotificationType.NEW_REVIEW)
+
+        # 5. The notification is not incorrectly classified as PROJECT_COMPLETED
+        self.assertNotEqual(notification.notification_type, Notification.NotificationType.PROJECT_COMPLETED)
+
+    def test_review_submission_does_not_silently_swallow_notification_errors(self):
+        self.client.login(username='labclient', password='Password123!')
+        url = reverse('accounts:submit_review', kwargs={
+            'project_pk': self.completed_project.pk,
+            'user_pk': self.student_user.pk
+        })
+        from unittest.mock import patch
+        with patch('accounts.views.create_notification', side_effect=RuntimeError("Notification service unexpected error")):
+            with self.assertRaises(RuntimeError):
+                self.client.post(url, {
+                    'rating': '5',
+                    'comment': 'Testing unswallowed notification errors.'
+                })
 
     def test_concurrent_duplicate_review_handled_gracefully_without_500(self):
         self.client.login(username='labclient', password='Password123!')

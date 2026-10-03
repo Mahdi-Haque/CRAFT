@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.utils import timezone
@@ -54,6 +55,7 @@ class NotificationModelTests(TestCase):
                 'project_started',
                 'project_completed',
                 'project_closed',
+                'new_review',
             },
         )
 
@@ -140,6 +142,27 @@ class NotificationServiceTests(TestCase):
 
         self.assertEqual(notification.link, '')
         self.assertTrue(Notification.objects.filter(pk=notification.pk).exists())
+
+    def test_create_notification_with_new_review_type(self):
+        notification = create_notification(
+            recipient=self.user,
+            notification_type=Notification.NotificationType.NEW_REVIEW,
+            title='New Review (5★) Received',
+            message='Client left you a 5-star review.',
+            link='/accounts/profile/1/',
+        )
+        self.assertEqual(notification.notification_type, Notification.NotificationType.NEW_REVIEW)
+        self.assertEqual(notification.get_notification_type_display(), 'New review')
+        self.assertEqual(notification.recipient, self.user)
+
+    def test_create_notification_fails_without_recipient(self):
+        with self.assertRaises((IntegrityError, ValueError)):
+            create_notification(
+                recipient=None,
+                notification_type=Notification.NotificationType.NEW_REVIEW,
+                title='Missing recipient',
+                message='Should fail database integrity',
+            )
 
 
 class NotificationListViewTests(TestCase):
