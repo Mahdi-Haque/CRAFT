@@ -300,16 +300,13 @@ def submit_review_view(request, project_pk, user_pk=None):
                 return redirect('accounts:public_profile', pk=reviewed_user.pk)
             else:
                 # Successfully saved review - trigger centralized notification
-                try:
-                    create_notification(
-                        recipient=reviewed_user,
-                        notification_type=Notification.NotificationType.PROJECT_COMPLETED,
-                        title=f"New Review ({review.rating}★) Received",
-                        message=f"{request.user.display_name} left you a {review.rating}-star review for project '{project.title}'.",
-                        link=reverse('accounts:public_profile', kwargs={'pk': reviewed_user.pk}),
-                    )
-                except Exception:
-                    pass
+                create_notification(
+                    recipient=reviewed_user,
+                    notification_type=Notification.NotificationType.NEW_REVIEW,
+                    title=f"New Review ({review.rating}★) Received",
+                    message=f"{request.user.display_name} left you a {review.rating}-star review for project '{project.title}'.",
+                    link=reverse('accounts:public_profile', kwargs={'pk': reviewed_user.pk}),
+                )
                 messages.success(request, f"Your review for {reviewed_user.display_name} has been published successfully.")
                 return redirect('accounts:public_profile', pk=reviewed_user.pk)
     else:

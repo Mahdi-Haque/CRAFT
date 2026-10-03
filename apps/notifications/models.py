@@ -12,6 +12,7 @@ class Notification(models.Model):
         PROJECT_STARTED = 'project_started', 'Project started'
         PROJECT_COMPLETED = 'project_completed', 'Project completed'
         PROJECT_CLOSED = 'project_closed', 'Project closed'
+        NEW_REVIEW = 'new_review', 'New review'
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL,
