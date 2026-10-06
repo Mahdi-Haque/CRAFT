@@ -3,7 +3,7 @@ services:
     name: craft
     runtime: python
     plan: free
-    buildCommand: "./build.sh"
+    buildCommand: "bash build.sh"
     startCommand: "gunicorn jobportal.wsgi:application"
     envVars:
       - key: SECRET_KEY
